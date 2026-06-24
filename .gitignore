@@ -10,20 +10,34 @@ build/
 out/
 *.tsbuildinfo
 
-# Expo / React Native
-.expo/
-.expo-shared/
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+**/build/
+*.iml
+*.lock.bak
+# 코드 생성 산출물은 생성기 사용 시 보통 커밋함 (.g.dart 등) — 팀 규칙에 따라 조정
+
+# 모바일 서명/네이티브
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
-*.orig.*
-web-build/
 ios/Pods/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
 android/.gradle/
 android/app/build/
 android/build/
+android/key.properties
+android/local.properties
 
 # Environment & secrets
 .env
