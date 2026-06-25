@@ -1,0 +1,69 @@
+name: 🐞 버그 리포트
+description: 동작이 기대와 다르거나 오류가 발생할 때
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        버그 제보 감사합니다! 재현에 필요한 정보를 최대한 채워주세요.
+  - type: dropdown
+    id: area
+    attributes:
+      label: 영역
+      description: 버그가 발생한 영역
+      options:
+        - app (Flutter)
+        - server (Node/TS)
+        - 공통 / API 계약
+        - 기타
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 현상 설명
+      description: 무엇이 잘못되었나요?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 절차
+      description: 단계별로 적어주세요.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 동작
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 환경
+      description: 기기/OS, 앱 또는 서버 버전, 브랜치/커밋 등
+      placeholder: |
+        - 기기/OS: Pixel 7 / Android 14
+        - Flutter: 3.x
+        - 브랜치/커밋: main @ abc1234
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: 로그 / 스크린샷
+      description: 관련 로그나 스크린샷 (민감정보·토큰은 가리고 첨부)
+    validations:
+      required: false

@@ -1,0 +1,16 @@
+# <type>(<scope>): <subject>   ← 50자 이내, 마침표 없이
+#
+# <body>  ← 무엇을·왜 (한 줄 72자), 선택
+#
+# <footer> ← Closes #이슈번호 / BREAKING CHANGE: ...  선택
+#
+# ── type ────────────────────────────────────────────
+# feat     새 기능        fix      버그 수정
+# docs     문서           style    포맷(동작 변화 X)
+# refactor 리팩터링       perf     성능 개선
+# test     테스트         build    빌드/의존성
+# ci       CI 설정        chore    잡일
+# revert   되돌리기
+# ── scope (선택) ────────────────────────────────────
+# app | server | api | infra | ci | deps
+# ────────────────────────────────────────────────────
