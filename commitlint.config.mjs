@@ -1,7 +1,8 @@
 // Angular(Conventional) 커밋 컨벤션 검사 설정.
 // 검사 규칙: CONTRIBUTING.md 참고.
 // CI에서 wagoid/commitlint-github-action 이 이 파일을 읽어 PR의 커밋들을 검사한다.
-module.exports = {
+// commitlint-github-action v6 은 .js 설정 파일을 거부하므로 .mjs(ESM) 사용.
+export default {
   extends: ['@commitlint/config-conventional'],
   rules: {
     // 허용 type 목록 (Angular)
