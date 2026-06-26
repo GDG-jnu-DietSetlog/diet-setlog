@@ -1,0 +1,28 @@
+name: Commitlint
+
+# PR에 포함된 모든 커밋이 Angular 컨벤션 + (#이슈번호) 규칙을 지키는지 검사한다.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  commitlint:
+    name: 커밋 메시지 검사
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # PR의 모든 커밋을 검사하려면 전체 히스토리가 필요하다.
+          fetch-depth: 0
+
+      - name: Run commitlint
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.js
+          # PR base..head 사이의 커밋만 검사
+          failOnWarnings: true
+          helpURL: https://github.com/GDG-jnu-DietSetlog/diet-setlog/blob/main/CONTRIBUTING.md

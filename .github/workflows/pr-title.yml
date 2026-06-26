@@ -1,0 +1,50 @@
+name: PR Title Check
+
+# PR 제목이 'type(scope): subject (#이슈번호)' 형식인지 검사한다.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  semantic:
+    name: 컨벤션(type) 검사
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title (Angular type)
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: '.+'
+
+  issue-number:
+    name: 이슈번호 (#N) 검사
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require (#issue) suffix
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "PR 제목: $TITLE"
+          if echo "$TITLE" | grep -qE '\(#[0-9]+\)[[:space:]]*$'; then
+            echo "✅ 제목 끝에 (#이슈번호) 가 있습니다."
+          else
+            echo "::error::PR 제목 끝에 (#이슈번호)를 붙여주세요. 예) feat(app): 세트 기록 화면 추가 (#12)"
+            exit 1
+          fi
