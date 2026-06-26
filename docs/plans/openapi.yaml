@@ -1,0 +1,693 @@
+openapi: 3.1.0
+# diet-setlog REST API 계약 — 단일 진실원(source of truth).
+# 산문 설계: api-db-design.md / spec-lock.md. 충돌 시 이 파일이 최우선(spec-lock §0).
+# Dart 모델은 이 스펙에서 생성(openapi-generator), 서버는 zod로 동일 형태 검증.
+info:
+  title: diet-setlog API
+  version: 1.0.0
+  description: >
+    다이어트/운동 세트 기록 앱 백엔드. 익명 게스트 세션(JWT) 기반, 카카오 로그인은 선택.
+    이미지=S3 호환, 음식 분석=Gemini gemini-2.5-flash(비동기 큐+폴링). 타임존 KST 고정.
+
+servers:
+  - url: https://api.diet-setlog.example/v1
+    description: 프로덕션(예시)
+  - url: http://localhost:3000/v1
+    description: 로컬
+
+security:
+  - bearerAuth: []
+
+tags:
+  - { name: session,  description: 게스트 세션 }
+  - { name: profile,  description: 프로필/온보딩 }
+  - { name: home,     description: 홈 }
+  - { name: friends,  description: 친구 목록/추천/검색 }
+  - { name: analysis, description: 음식 이미지 분석 }
+  - { name: records,  description: 식단 기록 }
+  - { name: calendar, description: 캘린더 }
+  - { name: feed,     description: 피드/좋아요/댓글 }
+
+paths:
+  /sessions/guest:
+    post:
+      tags: [session]
+      summary: 게스트 세션 생성
+      security: []   # authGuard 예외(토큰 발급)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deviceHint: { type: string }
+      responses:
+        '201':
+          description: 생성됨
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, sessionToken, isNewUser]
+                properties:
+                  userId:       { type: string, format: uuid }
+                  sessionToken: { type: string, description: HS256 JWT, 365일 }
+                  isNewUser:    { type: boolean }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /me/profile:
+    get:
+      tags: [profile]
+      summary: 프로필 조회(부트스트랩 분기). 없으면 200 + profile=null.
+      responses:
+        '200':
+          description: OK (profile 없으면 null)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [profile]
+      summary: 프로필 저장(STEP3 "시작하기"). displayName 포함, 서버가 권장칼로리 계산.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpsertRequest' }
+      responses:
+        '200':
+          description: 저장됨(권장칼로리 계산 포함)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /home:
+    get:
+      tags: [home]
+      summary: 홈 데이터(오늘 요약/인증친구/최근기록). Redis 45s.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /friends:
+    get:
+      tags: [friends]
+      summary: 친구 목록(내가 follow한 사람). 무한 스크롤(keyset).
+      parameters:
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /friends/search:
+    get:
+      tags: [friends]
+      summary: 친구 추천/검색. q 빈값=추천(2단계 깔때기), q 있음=이름 검색.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          description: 빈값이면 추천 목록, 있으면 displayName ILIKE 검색.
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendSearchResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /friends/{friendUserId}/follow:
+    parameters:
+      - { $ref: '#/components/parameters/FriendUserId' }
+    post:
+      tags: [friends]
+      summary: 친구 추가(멱등). 대상 followerCount+1, 본인 followingCount+1.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FollowResult' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [friends]
+      summary: 친구 제거(멱등).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FollowResult' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /food-analyses:
+    post:
+      tags: [analysis]
+      summary: 이미지 업로드 + 분석 시작(비동기 큐). 항상 202 processing 반환.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:  { type: string, format: binary }
+                source: { type: string, enum: [camera, gallery] }
+      responses:
+        '202':
+          description: 처리 시작(폴링으로 결과 확인)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisResponse' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /food-analyses/{analysisId}:
+    get:
+      tags: [analysis]
+      summary: 분석 상태 폴링(1.5s 간격, 최대 20회).
+      parameters:
+        - in: path
+          name: analysisId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: 상태(processing/completed/failed)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /food-records:
+    post:
+      tags: [records]
+      summary: 기록 저장("피드에 올리기"). 트랜잭션. memo 포함.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecordCreateRequest' }
+      responses:
+        '201':
+          description: 저장됨(그날 요약 포함)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecordCreateResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /calendar/daily-summary:
+    get:
+      tags: [calendar]
+      summary: 날짜별 요약(끼니 4종 그룹). Redis 30s.
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema: { type: string, format: date }
+          description: YYYY-MM-DD (KST)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CalendarDayResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+
+  /feed:
+    get:
+      tags: [feed]
+      summary: 피드(나∪팔로위의 공개 글). createdAt desc keyset. Redis 30s.
+      parameters:
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+        - in: query
+          name: mealType
+          schema: { $ref: '#/components/schemas/MealType' }
+          description: 필터칩(전체=생략)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeedResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /posts/{recordId}/like:
+    parameters:
+      - { $ref: '#/components/parameters/RecordId' }
+    post:
+      tags: [feed]
+      summary: 좋아요(멱등). likeCount+1.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LikeResult' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [feed]
+      summary: 좋아요 취소(멱등). likeCount-1.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LikeResult' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /posts/{recordId}/comments:
+    parameters:
+      - { $ref: '#/components/parameters/RecordId' }
+    get:
+      tags: [feed]
+      summary: 댓글 목록(createdAt asc keyset).
+      parameters:
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommentListResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [feed]
+      summary: 댓글 작성. commentCount+1.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 300 }
+      responses:
+        '201':
+          description: 작성됨
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [comment]
+                properties:
+                  comment: { $ref: '#/components/schemas/Comment' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 익명 sessionToken(HS256 JWT). payload { sub, ver, iat, exp }.
+
+  parameters:
+    Cursor:
+      in: query
+      name: cursor
+      schema: { type: string }
+      description: base64url(JSON) keyset 토큰. 생략=처음.
+    Limit:
+      in: query
+      name: limit
+      schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+    FriendUserId:
+      in: path
+      name: friendUserId
+      required: true
+      schema: { type: string, format: uuid }
+    RecordId:
+      in: path
+      name: recordId
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthorized:
+      description: 토큰 없음/무효
+      content:
+        application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+    ValidationFailed:
+      description: 입력 검증 실패
+      content:
+        application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+    NotFound:
+      description: 미존재
+      content:
+        application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+    PayloadTooLarge:
+      description: 파일 초과(>10MB)
+      content:
+        application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+    RateLimited:
+      description: 레이트리밋(Retry-After 헤더 포함)
+      headers:
+        Retry-After: { schema: { type: integer }, description: 초 }
+      content:
+        application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } }
+
+  schemas:
+    MealType:
+      type: string
+      enum: [breakfast, lunch, dinner, snack]
+    Gender:
+      type: string
+      enum: [male, female, other]
+    AnalysisStatus:
+      type: string
+      enum: [processing, completed, failed]
+
+    Macros:
+      type: object
+      required: [proteinG, carbsG, fatG]
+      properties:
+        proteinG: { type: number }
+        carbsG:   { type: number }
+        fatG:     { type: number }
+
+    UserRef:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:          { type: string, format: uuid }
+        displayName: { type: string }
+        avatarUrl:   { type: string, nullable: true }
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_FAILED, UNAUTHORIZED, FORBIDDEN, NOT_FOUND, CONFLICT,
+                     PAYLOAD_TOO_LARGE, ANALYSIS_FAILED, RATE_LIMITED, INTERNAL]
+            message: { type: string }
+            fields:
+              type: object
+              additionalProperties: { type: string }
+              nullable: true
+
+    # ── Profile ──
+    ProfileUpsertRequest:
+      type: object
+      required: [displayName, gender, birthYear, heightCm, currentWeightKg, targetWeightKg, targetDate]
+      properties:
+        displayName:     { type: string, minLength: 1, maxLength: 50 }
+        gender:          { $ref: '#/components/schemas/Gender' }
+        birthYear:       { type: integer, minimum: 1920, description: "≤ 올해−14" }
+        heightCm:        { type: number, minimum: 80, maximum: 250 }
+        currentWeightKg: { type: number, minimum: 20, maximum: 400 }
+        targetWeightKg:  { type: number, minimum: 20, maximum: 400 }
+        targetDate:      { type: string, format: date, description: 미래 & ≤2년 }
+    Profile:
+      type: object
+      required: [displayName, gender, birthYear, heightCm, currentWeightKg, targetWeightKg, targetDate]
+      properties:
+        displayName:     { type: string }
+        gender:          { $ref: '#/components/schemas/Gender' }
+        birthYear:       { type: integer }
+        heightCm:        { type: number }
+        currentWeightKg: { type: number }
+        targetWeightKg:  { type: number }
+        targetDate:      { type: string, format: date }
+    ProfileResponse:
+      type: object
+      required: [profile, dailyCalorieTarget, weeklyWeightDelta]
+      properties:
+        profile:
+          oneOf:
+            - { $ref: '#/components/schemas/Profile' }
+            - { type: 'null' }
+        dailyCalorieTarget: { type: integer, description: 1200~5000 clamp }
+        weeklyWeightDelta:  { type: number, description: kg/주(음수=감량) }
+
+    # ── 공통 기록 카드 ──
+    FoodItem:
+      type: object
+      required: [id, name, calories, proteinG, carbsG, fatG, sortOrder]
+      properties:
+        id:        { type: string, format: uuid }
+        name:      { type: string }
+        amount:    { type: string, nullable: true }
+        calories:  { type: integer }
+        proteinG:  { type: number }
+        carbsG:    { type: number }
+        fatG:      { type: number }
+        sortOrder: { type: integer }
+    FoodRecordCard:
+      type: object
+      required: [id, title, mealType, eatenAt, totalCalories, macros, publishedToFeed, likeCount, commentCount, items]
+      properties:
+        id:              { type: string, format: uuid }
+        title:           { type: string }
+        imageUrl:        { type: string, nullable: true }
+        mealType:        { $ref: '#/components/schemas/MealType' }
+        eatenAt:         { type: string, format: date-time }
+        totalCalories:   { type: integer }
+        macros:          { $ref: '#/components/schemas/Macros' }
+        memo:            { type: string, nullable: true }
+        publishedToFeed: { type: boolean }
+        likeCount:       { type: integer }
+        commentCount:    { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FoodItem' }
+
+    # ── Home ──
+    DailySummary:
+      type: object
+      required: [date, calorieTarget, totalCalories, macros, remainingCalories]
+      properties:
+        date:              { type: string, format: date }
+        calorieTarget:     { type: integer }
+        totalCalories:     { type: integer }
+        macros:            { $ref: '#/components/schemas/Macros' }
+        remainingCalories: { type: integer }
+        progressRatio:     { type: number, description: totalCalories/calorieTarget }
+    HomeResponse:
+      type: object
+      required: [currentUser, todaySummary, friendsCertifiedToday, recentRecords]
+      properties:
+        currentUser:  { $ref: '#/components/schemas/UserRef' }
+        todaySummary: { $ref: '#/components/schemas/DailySummary' }
+        friendsCertifiedToday:
+          type: array
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/UserRef' }
+              - type: object
+                required: [certifiedAt]
+                properties:
+                  certifiedAt: { type: string, format: date-time }
+        recentRecords:
+          type: array
+          items: { $ref: '#/components/schemas/FoodRecordCard' }
+
+    # ── Friends ──
+    FriendsResponse:
+      type: object
+      required: [friends]
+      properties:
+        friends:
+          type: array
+          items:
+            type: object
+            required: [id, displayName, mutualFriendCount, certifiedToday]
+            properties:
+              id:                { type: string, format: uuid }
+              displayName:       { type: string }
+              avatarUrl:         { type: string, nullable: true }
+              mutualFriendCount: { type: integer }
+              certifiedToday:    { type: boolean }
+        nextCursor: { type: string, nullable: true }
+    FriendSearchResponse:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items:
+            type: object
+            required: [id, displayName, followerCount, postCount, mutualFriendCount, selected]
+            properties:
+              id:                { type: string, format: uuid }
+              displayName:       { type: string }
+              avatarUrl:         { type: string, nullable: true }
+              followerCount:     { type: integer }
+              postCount:         { type: integer }
+              mutualFriendCount: { type: integer }
+              selected:          { type: boolean, description: 이미 내 친구인가 }
+        nextCursor: { type: string, nullable: true }
+    FollowResult:
+      type: object
+      required: [friendUserId, selected]
+      properties:
+        friendUserId: { type: string, format: uuid }
+        selected:     { type: boolean }
+
+    # ── Analysis ──
+    AnalysisResult:
+      type: object
+      required: [dishName, totalCalories, macros, items, confidence]
+      properties:
+        dishName:      { type: string }
+        totalCalories: { type: integer }
+        macros:        { $ref: '#/components/schemas/Macros' }
+        items:
+          type: array
+          items:
+            type: object
+            required: [name, calories, proteinG, carbsG, fatG]
+            properties:
+              name:     { type: string }
+              amount:   { type: string, nullable: true }
+              calories: { type: integer }
+              proteinG: { type: number }
+              carbsG:   { type: number }
+              fatG:     { type: number }
+        confidence: { type: number, description: 0.0~1.0 }
+        notes:      { type: string, nullable: true }
+    AnalysisResponse:
+      type: object
+      required: [analysisId, status, imageUrl]
+      properties:
+        analysisId:  { type: string, format: uuid }
+        status:      { $ref: '#/components/schemas/AnalysisStatus' }
+        imageUrl:    { type: string }
+        result:      { $ref: '#/components/schemas/AnalysisResult' }   # completed
+        needsReview: { type: boolean }                                # completed
+        errorCode:
+          type: string
+          enum: [IMAGE_UNREADABLE, NO_FOOD_DETECTED, MODEL_TIMEOUT, MODEL_ERROR]   # failed
+        message: { type: string }
+
+    # ── Records ──
+    RecordCreateRequest:
+      type: object
+      required: [mealType, eatenAt, title, totalCalories, macros, items, publishToFeed]
+      properties:
+        analysisId:    { type: string, format: uuid, nullable: true }
+        mealType:      { $ref: '#/components/schemas/MealType' }
+        eatenAt:       { type: string, format: date-time }
+        title:         { type: string, minLength: 1, maxLength: 50 }
+        totalCalories: { type: integer }
+        macros:        { $ref: '#/components/schemas/Macros' }
+        memo:          { type: string, maxLength: 200, nullable: true }
+        items:
+          type: array
+          items:
+            type: object
+            required: [name, calories, proteinG, carbsG, fatG]
+            properties:
+              name:     { type: string }
+              amount:   { type: string, nullable: true }
+              calories: { type: integer }
+              proteinG: { type: number }
+              carbsG:   { type: number }
+              fatG:     { type: number }
+        publishToFeed: { type: boolean }
+    RecordCreateResponse:
+      type: object
+      required: [recordId, record, dailySummary]
+      properties:
+        recordId:     { type: string, format: uuid }
+        record:       { $ref: '#/components/schemas/FoodRecordCard' }
+        dailySummary: { $ref: '#/components/schemas/DailySummary' }
+
+    # ── Calendar ──
+    CalendarDayResponse:
+      type: object
+      required: [date, calorieTarget, totalCalories, macros, progressPercent, recordsByMeal]
+      properties:
+        date:            { type: string, format: date }
+        calorieTarget:   { type: integer }
+        totalCalories:   { type: integer }
+        macros:          { $ref: '#/components/schemas/Macros' }
+        progressPercent: { type: integer, description: round(total/target*100) }
+        recordsByMeal:
+          type: object
+          required: [breakfast, lunch, dinner, snack]
+          properties:
+            breakfast: { type: array, items: { $ref: '#/components/schemas/FoodRecordCard' } }
+            lunch:     { type: array, items: { $ref: '#/components/schemas/FoodRecordCard' } }
+            dinner:    { type: array, items: { $ref: '#/components/schemas/FoodRecordCard' } }
+            snack:     { type: array, items: { $ref: '#/components/schemas/FoodRecordCard' } }
+
+    # ── Feed ──
+    Comment:
+      type: object
+      required: [id, author, body, createdAt]
+      properties:
+        id:        { type: string, format: uuid }
+        author:    { $ref: '#/components/schemas/UserRef' }
+        body:      { type: string }
+        createdAt: { type: string, format: date-time }
+    FeedPost:
+      type: object
+      required: [recordId, author, title, imageUrl, mealType, eatenAt, totalCalories, macros, likeCount, commentCount, likedByMe, previewComments]
+      properties:
+        recordId:      { type: string, format: uuid }
+        author:        { $ref: '#/components/schemas/UserRef' }
+        title:         { type: string }
+        imageUrl:      { type: string }
+        mealType:      { $ref: '#/components/schemas/MealType' }
+        eatenAt:       { type: string, format: date-time }
+        totalCalories: { type: integer }
+        macros:        { $ref: '#/components/schemas/Macros' }
+        memo:          { type: string, nullable: true }
+        likeCount:     { type: integer }
+        commentCount:  { type: integer }
+        likedByMe:     { type: boolean }
+        previewComments:
+          type: array
+          description: 최신 2개
+          items: { $ref: '#/components/schemas/Comment' }
+    FeedResponse:
+      type: object
+      required: [posts]
+      properties:
+        posts:
+          type: array
+          items: { $ref: '#/components/schemas/FeedPost' }
+        nextCursor: { type: string, nullable: true }
+    LikeResult:
+      type: object
+      required: [recordId, liked, likeCount]
+      properties:
+        recordId:  { type: string, format: uuid }
+        liked:     { type: boolean }
+        likeCount: { type: integer }
+    CommentListResponse:
+      type: object
+      required: [comments]
+      properties:
+        comments:
+          type: array
+          items: { $ref: '#/components/schemas/Comment' }
+        nextCursor: { type: string, nullable: true }

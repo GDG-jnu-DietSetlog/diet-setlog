@@ -2,7 +2,7 @@
 
 - **현재 상태**: ✅ 확정 — [0001 알고리즘 ADR](./0001-recommendation-algorithm.md) (가중치 수치는 데이터 쌓이며 튜닝)
 - **최종 갱신**: 2026-06-26
-- **관련**: [0001 ADR](./0001-recommendation-algorithm.md) · [설계](../../api-db-design.md) §1.5, §4.5~4.8, §9 · [리서치](../../research/friend-recommendation/README.md) · 이슈 [#1](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/1), [#2](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/2)
+- **관련**: [0001 ADR](./0001-recommendation-algorithm.md) · [설계](../../plans/api-db-design.md) §1.5, §4.5~4.8, §9 · [리서치](../../research/friend-recommendation/README.md) · 이슈 [#1](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/1), [#2](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/2)
 - **상위 카탈로그**: [../README.md](../README.md)
 
 > 이 폴더는 "친구 추천" 결정 주제 하나를 담는다. 이 README는 **현재 유효한 결정**을 한눈에 보여주고,

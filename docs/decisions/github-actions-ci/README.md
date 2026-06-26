@@ -2,7 +2,7 @@
 
 - **현재 상태**: ✅ 확정 (검사 항목은 코드 스캐폴딩 시점에 단계적 활성화)
 - **최종 갱신**: 2026-06-26
-- **관련**: [리서치](../../research/github-actions-ci/README.md) · [설계](../../api-db-design.md) · [CLAUDE.md](../../../CLAUDE.md)
+- **관련**: [리서치](../../research/github-actions-ci/README.md) · [설계](../../plans/api-db-design.md) · [CLAUDE.md](../../../CLAUDE.md)
 - **상위 카탈로그**: [../README.md](../README.md)
 
 > 이 폴더는 "GitHub Actions CI 도입" 결정 주제를 담는다. 아래는 **현재 유효한 결정 요약**이고,

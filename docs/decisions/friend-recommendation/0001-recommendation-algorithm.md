@@ -2,19 +2,19 @@
 
 - **상태**: ✅ 확정 (가중치 수치는 데이터 쌓이며 튜닝)
 - **날짜**: 2026-06-26
-- **관련**: [../../api-db-design.md](../../api-db-design.md) §1.5·§2.2·§4.5~4.8·§9 · [리서치](../../research/friend-recommendation/README.md) (문서 01~05) · [README](./README.md) · 이슈 [#1](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/1), [#2](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/2)
+- **관련**: [../../plans/api-db-design.md](../../plans/api-db-design.md) §1.5·§2.2·§4.5~4.8·§9 · [리서치](../../research/friend-recommendation/README.md) (문서 01~05) · [README](./README.md) · 이슈 [#1](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/1), [#2](https://github.com/GDG-jnu-DietSetlog/diet-setlog/issues/2)
 
 ## 맥락 (Context)
 
-초기 친구 추천 초안([설계 §4.6](../../api-db-design.md))은 정렬을 **`친구수(friendCount)↓ → 활동수(postCount)↓`** 로 두었다. 그러나 [리서치](../../research/friend-recommendation/README.md)를 마친 뒤 두 가지 문제가 드러났다.
+초기 친구 추천 초안([설계 §4.6](../../plans/api-db-design.md))은 정렬을 **`친구수(friendCount)↓ → 활동수(postCount)↓`** 로 두었다. 그러나 [리서치](../../research/friend-recommendation/README.md)를 마친 뒤 두 가지 문제가 드러났다.
 
 1. **1순위 신호 누락**: 모든 글로벌 서비스의 핵심 신호는 **공통 친구 수(mutual friends) / friends-of-friends(triangle closing)** 인데([02-알고리즘](../../research/friend-recommendation/02-algorithms-and-signals.md) §2.1, [01-글로벌](../../research/friend-recommendation/01-global-services-pymk.md)), 초안 정렬엔 이게 없다.
-2. **카운터 의미 오류**: `friendCount` 를 "내가 follow한 수"(following)로 집계하면([설계 §4.7](../../api-db-design.md)) 정렬 1순위가 "남을 많이 follow한 사람"이 되어 인기도 신호와 어긋난다.
+2. **카운터 의미 오류**: `friendCount` 를 "내가 follow한 수"(following)로 집계하면([설계 §4.7](../../plans/api-db-design.md)) 정렬 1순위가 "남을 많이 follow한 사람"이 되어 인기도 신호와 어긋난다.
 
 또한 **우리 상황(서비스 초기) + 가용 데이터**라는 제약이 결정적이다.
 
 - **런칭 시점엔 그래프가 통째로 비어 있다**(글로벌 콜드 그래프) → 거의 모든 유저가 친구 0명 → FoF/공통친구가 대부분 빈 결과.
-- **카카오 친구 매칭은 비즈앱 검수 전이라 v1에서 비활성**([설계 §6](../../api-db-design.md) 범위밖, [03-콜드스타트](../../research/friend-recommendation/03-cold-start.md) §8).
+- **카카오 친구 매칭은 비즈앱 검수 전이라 v1에서 비활성**([설계 §6](../../plans/api-db-design.md) 범위밖, [03-콜드스타트](../../research/friend-recommendation/03-cold-start.md) §8).
 - 따라서 런칭 직후 **실제로 작동하는 신호는 활동량 + 프로필/목표 유사도뿐**이다.
 
 이 문서는 "이상적 알고리즘"이 아니라 **우리가 실제로 손에 쥔 데이터에서 역산한** 친구 추천 알고리즘을 확정한다.

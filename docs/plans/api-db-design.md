@@ -3,6 +3,13 @@
 > 대상: 이슈 #1 `dietsetlog-wireframe-plan.md`의 1차 구현 범위.
 > 스택: **Express + TypeScript + Prisma + PostgreSQL**, 이미지 = S3 호환 스토리지, 분석 = Gemini `gemini-2.5-flash`.
 > 이 문서는 **코드가 아니라 설계(계약·흐름·스키마)** 만 다룬다. 화면/플로우 범위는 이슈 #1을 따른다.
+>
+> ⚠️ **확정 델타(이 문서보다 우선)**: [spec-lock.md](./spec-lock.md) + 기계 판독 계약 [openapi.yaml](./openapi.yaml). 아래 추가/변경이 반영됨:
+> - 모델: `FoodRecord.memo`·`likeCount`·`commentCount`, 신규 `PostLike`·`PostComment`([spec-lock §4](./spec-lock.md)).
+> - 엔드포인트 추가: `/v1/feed`·`/v1/posts/{id}/like`·`/v1/posts/{id}/comments`([spec-lock §5.2](./spec-lock.md)).
+> - `PUT /v1/me/profile` 바디에 `displayName` 추가, `POST /v1/food-records` 바디에 `memo?` 추가([spec-lock §5.3](./spec-lock.md)).
+> - 중첩 응답 객체(todaySummary·recentRecords·record·dailySummary 등) 필드 확정([spec-lock §6](./spec-lock.md)).
+> - 매직넘버(레이트리밋·TTL·폴링·페이징·검증범위)·추천 상수·Gemini 프롬프트 확정([spec-lock §7~9](./spec-lock.md)).
 
 ---
 
@@ -46,7 +53,7 @@
 - ⚠️ **Figma에 로그인 화면 디자인이 아직 없음** → 화면 확정 후 플로우/필드 마무리. 아래는 설계 골격.
 - 흐름: 카카오 SDK 로그인 → 앱이 카카오 `accessToken` 획득 → 서버에 전달 → 서버가 카카오 사용자 정보 검증 → `AuthIdentity(provider=kakao, providerUserId=kakaoId)` upsert → 연결된 `User` 에 동일한 `sessionToken`(JWT) 발급.
 - **카카오 친구 추천**을 쓰려면 카카오 **친구 목록 동의(친구 scope, 비즈앱 검수)** 가 필요하다. → 친구 목록 API로 "내 카카오 친구 중 우리 앱 가입자"를 매칭한다(아래 4.6).
-- **이슈 #1과의 정리(확정)**: **게스트 세션을 유지하고 카카오는 선택**으로 둔다([0001 ADR §7](decisions/friend-recommendation/0001-recommendation-algorithm.md)). 게스트로 시작 → 친구 기능 사용 시 카카오 유도 → `AuthIdentity` 로 게스트→카카오 승격(`userId` 유지).
+- **이슈 #1과의 정리(확정)**: **게스트 세션을 유지하고 카카오는 선택**으로 둔다([0001 ADR §7](../decisions/friend-recommendation/0001-recommendation-algorithm.md)). 게스트로 시작 → 친구 기능 사용 시 카카오 유도 → `AuthIdentity` 로 게스트→카카오 승격(`userId` 유지).
 - `displayName`/`avatarUrl` 은 카카오 프로필에서 채운다(동의 항목 범위 내).
 
 ---
@@ -223,7 +230,7 @@ enum MealType       { breakfast lunch dinner snack }
 ### 2.3 설계 메모
 - **`FoodAnalysis.result` 는 jsonb**(저장 전 임시·가변). 영구·집계 대상은 정규화된 `FoodRecord`/`FoodItem` 컬럼이 진실.
 - **친구 기능은 두 화면**: ① 친구 목록 화면(`GET /v1/friends`) ② 추천/검색 화면(`GET /v1/friends/search` + follow/unfollow). 둘 다 `FriendRelation`(단방향, follower→following) 테이블을 사용. 추천/검색에서 선택하면 친구 목록에 추가된다. `selected` = "이미 내 친구인가". `mutualFriendCount` = 나의 following ∩ 상대의 following = **추천 랭킹 1순위 신호**(FoF self-join의 `COUNT(*)`로 산출, 카카오/폴백 후보는 0 가능).
-- **추천 신호 카운터(denormalized)**: `followerCount`(나를 follow, 인기 정렬)·`followingCount`(내가 follow, FoF 탐색)·`postCount`·`lastPostedAt`(활동). 목표유사 후보 필터용 `goalDirection`·`ageBucket`은 `Profile` 저장 시 User에 파생 저장. 알고리즘 상세는 [decisions/friend-recommendation/0001](decisions/friend-recommendation/0001-recommendation-algorithm.md).
+- **추천 신호 카운터(denormalized)**: `followerCount`(나를 follow, 인기 정렬)·`followingCount`(내가 follow, FoF 탐색)·`postCount`·`lastPostedAt`(활동). 목표유사 후보 필터용 `goalDirection`·`ageBucket`은 `Profile` 저장 시 User에 파생 저장. 알고리즘 상세는 [decisions/friend-recommendation/0001](../decisions/friend-recommendation/0001-recommendation-algorithm.md).
 - **삭제 정책**: User 삭제 시 하위 전부 `Cascade`. 단 `FoodRecord.analysis` 는 출처 보존 위해 `SetNull` 성격(analysisId nullable).
 - **마이그레이션**: `prisma migrate dev`(개발) / `prisma migrate deploy`(배포). seed 사용자(친구 검색용 mock)는 `prisma/seed.ts`.
 
@@ -257,15 +264,22 @@ enum MealType       { breakfast lunch dinner snack }
 | 1 | POST | `/v1/sessions/guest` | 없음 | - |
 | 2 | GET | `/v1/me/profile` | Bearer | - |
 | 3 | PUT | `/v1/me/profile` | Bearer | 무효화: home |
-| 4 | GET | `/v1/home` | Bearer | Redis 30~60s |
-| 5 | GET | `/v1/friends` | Bearer | Redis 30~60s |
+| 4 | GET | `/v1/home` | Bearer | Redis 45s |
+| 5 | GET | `/v1/friends` | Bearer | Redis 45s |
 | 6 | GET | `/v1/friends/search?q=` | Bearer | seed만 캐시 |
 | 7 | POST | `/v1/friends/{id}/follow` | Bearer | 무효화: home,friends,search |
 | 8 | DELETE | `/v1/friends/{id}/follow` | Bearer | 무효화: home,friends,search |
 | 9 | POST | `/v1/food-analyses` | Bearer | - (큐) |
 | 10 | GET | `/v1/food-analyses/{id}` | Bearer | - (폴링) |
-| 11 | POST | `/v1/food-records` | Bearer | 무효화: home,calendar |
+| 11 | POST | `/v1/food-records` | Bearer | 무효화: home,calendar,feed |
 | 12 | GET | `/v1/calendar/daily-summary?date=` | Bearer | Redis 30s |
+| 13 | GET | `/v1/feed?cursor=&limit=&mealType=` | Bearer | Redis 30s |
+| 14 | POST | `/v1/posts/{recordId}/like` | Bearer | 무효화: feed,home |
+| 15 | DELETE | `/v1/posts/{recordId}/like` | Bearer | 무효화: feed,home |
+| 16 | GET | `/v1/posts/{recordId}/comments?cursor=` | Bearer | - |
+| 17 | POST | `/v1/posts/{recordId}/comments` | Bearer | 무효화: feed |
+
+> 13~17(피드)는 [spec-lock §5.2](./spec-lock.md) 신설. 상세 요청/응답은 [openapi.yaml](./openapi.yaml).
 
 ---
 
@@ -287,14 +301,15 @@ enum MealType       { breakfast lunch dinner snack }
   - 권장: 200 + `{ profile: null }` 로 통일(앱 분기 단순화).
 
 ### 4.3 `PUT /v1/me/profile` — 프로필 저장 (STEP 3 "시작하기")
-- 요청: `{ gender, birthYear, heightCm, currentWeightKg, targetWeightKg, targetDate }`.
-  - **STEP 2**(`다음` 버튼, **API 호출 없음** — 클라 draft만): `gender`, `birthYear`(생년), `heightCm`, `currentWeightKg`.
-  - **STEP 3**(`시작하기` 버튼): STEP 2 draft + `targetWeightKg`, `targetDate` 를 합쳐 위 페이로드로 전송.
-  - `birthYear` 는 나이 계산용(활동량은 입력받지 않음).
-- zod 검증: birthYear(예 1920~현재, age 14세 이상), heightCm(예 80~250), weight(예 20~400), targetDate(미래), gender enum.
+- 요청: `{ displayName, gender, birthYear, heightCm, currentWeightKg, targetWeightKg, targetDate }`.
+  - **STEP 1**(`다음`, **API 호출 없음** — 클라 draft): `displayName`(이름).
+  - **STEP 2**(`다음`, **API 호출 없음** — 클라 draft): `gender`, `birthYear`(출생연도), `heightCm`, `currentWeightKg`.
+  - **STEP 3**(`시작하기`): STEP 1·2 draft + `targetWeightKg`, `targetDate` 를 합쳐 위 페이로드로 전송.
+  - `birthYear` 는 나이 계산용(활동량은 입력받지 않음). 검증 범위 확정값은 [spec-lock §7](./spec-lock.md).
+- zod 검증: displayName(1~50), birthYear(1920~올해−14), heightCm(80~250), weight(20~400), targetDate(미래 & ≤2년), gender enum.
 - 흐름:
   - → 3.1 로 `dailyCalorieTarget`, `weeklyWeightDelta` 계산.
-  - DB: `Profile` **upsert** (userId 기준) — 재호출 멱등. 동시에 **`User.goalDirection`**(targetWeightKg−currentWeightKg 부호 → lose/maintain/gain) + **`User.ageBucket`**(birthYear→10년 버킷) 파생 갱신(추천 후보 필터용).
+  - DB: `Profile` **upsert** (userId 기준) — 재호출 멱등. **`User.displayName`**도 갱신. 동시에 **`User.goalDirection`**(targetWeightKg−currentWeightKg 부호 → lose/maintain/gain) + **`User.ageBucket`**(`floor(birthYear/10)*10`) 파생 갱신(추천 후보 필터용).
   - 캐시: home 무효화.
 - RESP `200`: `{ profile, dailyCalorieTarget, weeklyWeightDelta }`.
 - 실패: `400` + fields → 앱은 화면 유지 + 입력 보존.
@@ -305,7 +320,7 @@ enum MealType       { breakfast lunch dinner snack }
   - friendsCertifiedToday: **내 친구**(`FriendRelation` follower=me) 중 오늘 `FoodRecord` 1건 이상 있는 유저 목록(join + distinct).
   - currentUser: `User`(displayName, avatarUrl).
   - recentRecords: `FoodRecord` 최신 N개(`orderBy eatenAt desc, take N`).
-- 캐시: 키 `home:{userId}`, TTL 30~60s. 기록/팔로우/프로필 변경 시 무효화.
+- 캐시: 키 `home:{userId}`, TTL 45s([spec-lock §7](./spec-lock.md)). 기록/팔로우/프로필 변경 시 무효화.
 - RESP `200`: `{ todaySummary, friendsCertifiedToday, currentUser, recentRecords }`.
 - 핫경로 → 캐시 우선, 미스 시에만 위 집계 쿼리.
 
@@ -319,11 +334,11 @@ enum MealType       { breakfast lunch dinner snack }
 - DB: `FriendRelation where followerId=me` join `User`(N+1 금지).
 - 각 row: `{ id, displayName, avatarUrl?, mutualFriendCount, certifiedToday }`.
 - **무한 스크롤**: 하단까지 스크롤하면 다음 batch 로드. `?cursor=&limit=`(기본 20), `nextCursor`(null이면 끝).
-- 캐시: `friends:{userId}`, TTL 30~60s. 친구 추가/제거 시 무효화.
+- 캐시: `friends:{userId}`, TTL 45s([spec-lock §7](./spec-lock.md)). 친구 추가/제거 시 무효화.
 - RESP `200`: `{ friends: [...], nextCursor? }`.
 
 ### 4.6 `GET /v1/friends/search?q=` — 친구 추천/검색 (친구 추가용)
-> 알고리즘 결정: [decisions/friend-recommendation/0001](decisions/friend-recommendation/0001-recommendation-algorithm.md). 아래는 그 구현 계약.
+> 알고리즘 결정: [decisions/friend-recommendation/0001](../decisions/friend-recommendation/0001-recommendation-algorithm.md). 아래는 그 구현 계약.
 
 - **친구를 추가하기 위한** 추천/검색 화면용. 위 친구 목록과는 **다른 화면**. 후보에서 항상 **본인 / 이미 내 친구** 제외.
 
@@ -367,15 +382,14 @@ enum MealType       { breakfast lunch dinner snack }
 
 ### 4.9 `POST /v1/food-analyses` — 이미지 업로드 + 분석 시작 (multipart)
 - 요청(multipart): `image`(file), optional `{ source: "camera"|"gallery" }`.
-- 검증: MIME(jpeg/png/webp), 크기 상한(예 10MB, 초과 `413`).
-- 흐름(**비동기 큐 권장**):
+- 검증: MIME(jpeg/png/webp), 크기 1KB~10MB(초과 `413`). 확정값 [spec-lock §7](./spec-lock.md).
+- 흐름(**비동기 큐 — 단일 경로 확정**, 동기 빠른경로 폐기):
   - → 이미지 S3 업로드(`imageKey`, `imageUrl`).
   - DB: `FoodAnalysis` insert (`status=processing`).
   - 큐: 분석 잡 enqueue(analysisId).
-  - RESP `202/200`: `{ analysisId, status:"processing", imageUrl }`.
-  - (워커) EXT: Gemini `gemini-2.5-flash` 호출(이미지 + 프롬프트) → 4.10 형태로 정규화 → DB update(`completed`/`failed`, `result`, `needsReview`).
-- **동기 빠른경로 옵션**: 분석이 즉시 끝나면 바로 `{ status:"completed", result }` 반환 가능(계약은 둘 다 허용).
-- 스파이크: 업로드/분석 전용 **빡센 레이트리밋**, 큐로 Gemini 동시호출 상한 제어, 요청 흐름 차단 금지.
+  - RESP **`202`**: `{ analysisId, status:"processing", imageUrl }` — **항상 processing 반환**. 결과는 4.10 폴링으로만 확인.
+  - (워커) EXT: Gemini `gemini-2.5-flash` 호출(이미지 + **프롬프트는 [spec-lock §9](./spec-lock.md) 원문**) → 4.10 형태로 정규화 → DB update(`completed`/`failed`, `result`, `needsReview`).
+- 스파이크: 업로드/분석 전용 **빡센 레이트리밋**(10/min, [spec-lock §7](./spec-lock.md)), 큐로 Gemini 동시호출 상한 제어, 요청 흐름 차단 금지.
 
 ### 4.10 `GET /v1/food-analyses/{analysisId}` — 분석 상태 폴링
 - 권한: `FoodAnalysis.userId == me` 아니면 `404`.
@@ -411,7 +425,7 @@ enum MealType       { breakfast lunch dinner snack }
 - 흐름(**트랜잭션**):
   - → `eatenLocalDate` = `eatenAt` 의 KST date 계산.
   - DB tx: `FoodRecord` insert + `FoodItem[]` bulk insert. `analysisId` 있으면 연결(`@unique`). `publishToFeed=true` 면 **본인 `postCount` +1 + `lastPostedAt`=now**(활동수·최근성, 추천 정렬용).
-  - 캐시: `home:{userId}`, `calendar:{userId}:{date}` 무효화.
+  - 캐시: `home:{userId}`, `calendar:{userId}:{date}`, `feed`(publishToFeed=true 시) 무효화.
 - RESP `201`: `{ recordId, record, dailySummary }` (그날 갱신된 요약 포함 → 앱이 홈/캘린더 즉시 반영).
 - 실패: form state 유지(앱). 서버는 부분저장 없도록 tx 보장.
 
@@ -446,7 +460,7 @@ enum MealType       { breakfast lunch dinner snack }
 - `GET /v1/food-records/{recordId}` 상세 조회.
 - 음식 상세 화면 / "수정하기" 버튼.
 - `PATCH /v1/food-records/{recordId}` 기존 기록 수정.
-- 카카오 **친구목록 매칭**: 비즈앱 검수 전까지 미동작 → 그 동안 추천은 **목표유사도+활동 폴백**으로 대체(FoF 추천은 범위 안). [0001 ADR §6](decisions/friend-recommendation/0001-recommendation-algorithm.md).
+- 카카오 **친구목록 매칭**: 비즈앱 검수 전까지 미동작 → 그 동안 추천은 **목표유사도+활동 폴백**으로 대체(FoF 추천은 범위 안). [0001 ADR §6](../decisions/friend-recommendation/0001-recommendation-algorithm.md).
 - 카카오 **외** 로그인(구글 등) — 미논의(스키마는 `AuthIdentity`로 확장 대비).
 
 ---
@@ -462,7 +476,7 @@ enum MealType       { breakfast lunch dinner snack }
 - **추천**: `User(followerCount, postCount)`(인기·활동), `User(goalDirection, ageBucket)`(목표유사 후보), `User(lastPostedAt)`(활동 폴백). `FriendRecFeedback(userId, action)`.
 - `FoodRecord(userId, eatenLocalDate)` (홈 오늘/캘린더 핫경로).
 - `FoodAnalysis(userId, createdAt)`, `FoodItem(recordId)`, `FriendRelation @@unique + followingId`.
-- 친구 **목록**은 cursor keyset 무한 스크롤. **추천**은 랭킹 1·2순위(mutual·goalSimilarity)가 계산값이라 DB keyset 불가 → **후보 좁히기 → 점수 계산 → 정렬 리스트 Redis 캐시 → 캐시 페이징**([ADR §8](decisions/friend-recommendation/0001-recommendation-algorithm.md)). Gemini 호출은 큐로 동시성 상한.
+- 친구 **목록**은 cursor keyset 무한 스크롤. **추천**은 랭킹 1·2순위(mutual·goalSimilarity)가 계산값이라 DB keyset 불가 → **후보 좁히기 → 점수 계산 → 정렬 리스트 Redis 캐시 → 캐시 페이징**([ADR §8](../decisions/friend-recommendation/0001-recommendation-algorithm.md)). Gemini 호출은 큐로 동시성 상한.
 
 ---
 
@@ -471,15 +485,15 @@ enum MealType       { breakfast lunch dinner snack }
 - 권장 칼로리: **프로필 설정 STEP 2 화면에서 `birthYear`(생년) 입력**받아 Mifflin BMR 계산. **활동량은 입력받지 않고** 서버 고정계수 `1.4` 사용.
 - **로그인: 앱 시작 시 카카오톡 로그인 도입 예정**(그 외 방법 미논의). Figma 로그인 화면 디자인은 아직 없음.
 - 친구는 **친구 목록 화면(`GET /v1/friends`)** 과 **추천/검색 화면(`GET /v1/friends/search`)** 두 개로 분리. 추천/검색에서 선택하면 친구 목록에 추가. 두 목록 모두 **무한 스크롤**(cursor 기반).
-- 친구 **추천 알고리즘 확정** → [decisions/friend-recommendation/0001](decisions/friend-recommendation/0001-recommendation-algorithm.md). 요지: 2단계 깔때기(후보 생성→결정론적 랭킹), 랭킹 `mutualFriendCount → goalSimilarity → activityRecency → followerCount → id`, 후보 union(FoF·카카오·목표/활동 폴백), 네트워크 성숙도별 가중치 이동.
+- 친구 **추천 알고리즘 확정** → [decisions/friend-recommendation/0001](../decisions/friend-recommendation/0001-recommendation-algorithm.md). 요지: 2단계 깔때기(후보 생성→결정론적 랭킹), 랭킹 `mutualFriendCount → goalSimilarity → activityRecency → followerCount → id`, 후보 union(FoF·카카오·목표/활동 폴백), 네트워크 성숙도별 가중치 이동.
 - **관계 모델**: 단방향 follow. 카운터 `followerCount`(인기)/`followingCount`(FoF) 분리.
 - **로그인**: 게스트 폴백 유지 + 카카오 선택(검수 의존성을 v1 출시 경로에서 분리).
 - **콜드스타트 폴백**: 카카오 미연동 구간은 목표유사도+활동으로 채워 빈 화면 방지.
 
-**남은 질문**
+**남은 질문 → 전부 확정됨([spec-lock §5.1](./spec-lock.md))**
 1. ~~카카오 로그인 vs 게스트~~ → **게스트 폴백 유지, 카카오 선택**(0001 ADR §7).
 2. ~~친구 상호/단방향~~ → **단방향 follow**(0001 ADR §5).
 3. ~~카카오 친구목록 미연동 폴백~~ → **목표유사도+활동 폴백**(0001 ADR §6). 비즈앱 검수 통과 시 카카오 소스 활성화.
-4. `GET /v1/me/profile` 미존재 시 **404 vs 200+null** (본 설계는 200+null 권장).
-5. 분석 경로: **비동기 큐 기본** vs 동기 빠른경로 허용(본 설계는 둘 다 계약 허용, 큐 권장).
-6. 캘린더 타임존: v1 **KST 고정** 가정 — 다국가 지원 시 사용자 tz 컬럼 필요.
+4. ~~`GET /v1/me/profile` 404 vs 200+null~~ → ✅ **200 + { profile: null } 확정**(404 금지).
+5. ~~분석 경로 비동기 vs 동기~~ → ✅ **비동기 큐 + 폴링만 확정**(동기 빠른경로 폐기, 항상 202 processing).
+6. ~~캘린더 타임존~~ → ✅ **KST(`Asia/Seoul`) 고정 확정**. 다국가 지원 시 사용자 tz 컬럼은 후속.
