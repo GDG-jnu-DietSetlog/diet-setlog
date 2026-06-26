@@ -1,0 +1,225 @@
+// diet-setlog Prisma schema — 단일 진실원: docs/plans/api-db-design.md §2.2 + spec-lock.md §4.
+// 파일럿 슬라이스는 User/Profile/(home용 FoodRecord·FriendRelation)을 실제로 사용하지만,
+// 스키마는 단일 소유 barrier라 전체를 한 번에 확정한다(피드/분석 포함).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  displayName    String
+  avatarUrl      String?
+  isGuest        Boolean   @default(true)
+  tokenVersion   Int       @default(0)
+  // 친구 추천용 denormalized 신호 (단방향 follow)
+  followerCount  Int       @default(0)
+  followingCount Int       @default(0)
+  postCount      Int       @default(0)
+  lastPostedAt   DateTime?
+  goalDirection  GoalDir?
+  ageBucket      Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  profile      Profile?
+  identities   AuthIdentity[]
+  analyses     FoodAnalysis[]
+  records      FoodRecord[]
+  following    FriendRelation[]    @relation("follower")
+  followers    FriendRelation[]    @relation("following")
+  recFeedback  FriendRecFeedback[] @relation("recOwner")
+  likesGiven   PostLike[]          @relation("postLiker")
+  commentsMade PostComment[]       @relation("postCommenter")
+
+  @@index([displayName])
+  @@index([followerCount, postCount])
+  @@index([goalDirection, ageBucket])
+  @@index([lastPostedAt])
+}
+
+model AuthIdentity {
+  id             String       @id @default(uuid())
+  userId         String
+  provider       AuthProvider
+  providerUserId String
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model Profile {
+  userId             String   @id
+  gender             Gender
+  birthYear          Int
+  heightCm           Float
+  currentWeightKg    Float
+  targetWeightKg     Float
+  targetDate         DateTime @db.Date
+  dailyCalorieTarget Int
+  weeklyWeightDelta  Float
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FoodAnalysis {
+  id          String         @id @default(uuid())
+  userId      String
+  imageKey    String
+  imageUrl    String
+  source      CaptureSource?
+  status      AnalysisStatus @default(processing)
+  needsReview Boolean        @default(false)
+  geminiRaw   Json?
+  result      Json?
+  errorCode   String?
+  errorMsg    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  record      FoodRecord?
+
+  @@index([userId, createdAt])
+}
+
+model FoodRecord {
+  id              String   @id @default(uuid())
+  userId          String
+  analysisId      String?  @unique
+  mealType        MealType
+  title           String
+  imageUrl        String?
+  eatenAt         DateTime
+  eatenLocalDate  DateTime @db.Date
+  totalCalories   Int
+  proteinG        Float
+  carbsG          Float
+  fatG            Float
+  memo            String?
+  publishedToFeed Boolean  @default(false)
+  likeCount       Int      @default(0)
+  commentCount    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis FoodAnalysis? @relation(fields: [analysisId], references: [id])
+  items    FoodItem[]
+  likes    PostLike[]
+  comments PostComment[]
+
+  @@index([userId, eatenLocalDate])
+  @@index([publishedToFeed, createdAt])
+}
+
+model FoodItem {
+  id        String     @id @default(uuid())
+  recordId  String
+  name      String
+  amount    String?
+  calories  Int
+  proteinG  Float
+  carbsG    Float
+  fatG      Float
+  sortOrder Int        @default(0)
+  record    FoodRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId])
+}
+
+model FriendRelation {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model FriendRecFeedback {
+  userId      String
+  candidateId String
+  action      RecAction
+  createdAt   DateTime  @default(now())
+  user        User      @relation("recOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, candidateId])
+  @@index([userId, action])
+}
+
+// 피드 좋아요 (멱등: 한 사람이 한 글에 1회) — spec-lock §4
+model PostLike {
+  recordId  String
+  userId    String
+  createdAt DateTime   @default(now())
+  record    FoodRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  user      User       @relation("postLiker", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([recordId, userId])
+  @@index([userId])
+}
+
+// 피드 댓글 — spec-lock §4
+model PostComment {
+  id        String     @id @default(uuid())
+  recordId  String
+  userId    String
+  body      String
+  createdAt DateTime   @default(now())
+  record    FoodRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  user      User       @relation("postCommenter", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([recordId, createdAt])
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum GoalDir {
+  lose
+  maintain
+  gain
+}
+
+enum RecAction {
+  shown
+  dismissed
+  hidden
+}
+
+enum AuthProvider {
+  google
+  kakao
+}
+
+enum CaptureSource {
+  camera
+  gallery
+}
+
+enum AnalysisStatus {
+  processing
+  completed
+  failed
+}
+
+enum MealType {
+  breakfast
+  lunch
+  dinner
+  snack
+}

@@ -1,0 +1,36 @@
+# 백엔드 전체를 docker로. `docker compose up --build` 하나로 DB + 서버 기동(마이그레이션 자동).
+# 파일럿은 Postgres + server. Redis/MinIO 는 후속 wave에서 같은 파일에 추가.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dietsetlog
+      POSTGRES_PASSWORD: dietsetlog
+      POSTGRES_DB: dietsetlog
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dietsetlog"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build: .
+    environment:
+      # 컨테이너 간 통신: DB 호스트 = 서비스명 postgres
+      DATABASE_URL: "postgresql://dietsetlog:dietsetlog@postgres:5432/dietsetlog?schema=public"
+      JWT_SECRET: "dev-only-change-me"
+      PORT: "3000"
+      APP_TZ: "Asia/Seoul"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
