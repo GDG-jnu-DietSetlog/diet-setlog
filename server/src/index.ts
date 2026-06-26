@@ -7,6 +7,10 @@ import { recordsRouter } from './modules/records/records.routes.js';
 import { calendarRouter } from './modules/calendar/calendar.routes.js';
 import { friendsRouter } from './modules/friends/friends.routes.js';
 import { feedRouter, postsRouter } from './modules/feed/feed.routes.js';
+import { analysesRouter } from './modules/analyses/analyses.routes.js';
+import { startAnalysisWorker } from './modules/analyses/analysis.queue.js';
+import { ensureBucket } from './lib/storage.js';
+import { usingMockGemini } from './lib/gemini.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -24,10 +28,22 @@ app.use('/v1/calendar', calendarRouter);
 app.use('/v1/friends', friendsRouter);
 app.use('/v1/feed', feedRouter);
 app.use('/v1/posts', postsRouter);
+app.use('/v1/food-analyses', analysesRouter);
 
 // 중앙 에러 핸들러는 마지막.
 app.use(errorHandler);
 
-app.listen(env.PORT, () => {
-  console.log(`diet-setlog server listening on :${env.PORT} (TZ=${env.APP_TZ})`);
+async function bootstrap() {
+  await ensureBucket(); // GCS 버킷 보장
+  startAnalysisWorker(); // 분석 큐 워커 기동
+  app.listen(env.PORT, () => {
+    console.log(
+      `diet-setlog server listening on :${env.PORT} (TZ=${env.APP_TZ}, gemini=${usingMockGemini ? 'mock' : 'live'})`,
+    );
+  });
+}
+
+bootstrap().catch((e) => {
+  console.error('bootstrap failed', e);
+  process.exit(1);
 });

@@ -1,7 +1,7 @@
 # diet-setlog — API 흐름 & DB 설계
 
 > 대상: 이슈 #1 `dietsetlog-wireframe-plan.md`의 1차 구현 범위.
-> 스택: **Express + TypeScript + Prisma + PostgreSQL**, 이미지 = S3 호환 스토리지, 분석 = Gemini `gemini-2.5-flash`.
+> 스택: **Express + TypeScript + Prisma + PostgreSQL**, 이미지 = **Google Cloud Storage**(로컬 fake-gcs-server), 분석 = Gemini `gemini-2.5-flash`. (스토리지 GCS 확정: [spec-lock §13.5-11](./spec-lock.md))
 > 이 문서는 **코드가 아니라 설계(계약·흐름·스키마)** 만 다룬다. 화면/플로우 범위는 이슈 #1을 따른다.
 >
 > ⚠️ **확정 델타(이 문서보다 우선)**: [spec-lock.md](./spec-lock.md) + 기계 판독 계약 [openapi.yaml](./openapi.yaml). 아래 추가/변경이 반영됨:
@@ -466,7 +466,7 @@ enum MealType       { breakfast lunch dinner snack }
 ---
 
 ## 7. 환경변수(.env, 서버 전용)
-`DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, `S3_ENDPOINT`/`S3_BUCKET`/`S3_ACCESS_KEY`/`S3_SECRET_KEY`/`S3_REGION`, `REDIS_URL`(캐시·레이트리밋), `KAKAO_REST_API_KEY`/`KAKAO_ADMIN_KEY`(카카오 로그인·친구목록), `APP_TZ=Asia/Seoul`.
+`DATABASE_URL`, `JWT_SECRET`, `GEMINI_API_KEY`, **GCS**: `GCS_BUCKET`/`GCS_PROJECT_ID`/`GCS_API_ENDPOINT`(에뮬레이터)/`GCS_PUBLIC_URL`(+실배포 `GOOGLE_APPLICATION_CREDENTIALS`), `REDIS_URL`(큐·캐시·레이트리밋), `KAKAO_REST_API_KEY`/`KAKAO_ADMIN_KEY`(카카오 로그인·친구목록), `APP_TZ=Asia/Seoul`.
 → **절대 커밋 금지**(.gitignore 확인). 클라이언트는 Gemini/S3 직접 호출하지 않음.
 
 ---
