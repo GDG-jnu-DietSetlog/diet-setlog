@@ -46,7 +46,7 @@
 - ⚠️ **Figma에 로그인 화면 디자인이 아직 없음** → 화면 확정 후 플로우/필드 마무리. 아래는 설계 골격.
 - 흐름: 카카오 SDK 로그인 → 앱이 카카오 `accessToken` 획득 → 서버에 전달 → 서버가 카카오 사용자 정보 검증 → `AuthIdentity(provider=kakao, providerUserId=kakaoId)` upsert → 연결된 `User` 에 동일한 `sessionToken`(JWT) 발급.
 - **카카오 친구 추천**을 쓰려면 카카오 **친구 목록 동의(친구 scope, 비즈앱 검수)** 가 필요하다. → 친구 목록 API로 "내 카카오 친구 중 우리 앱 가입자"를 매칭한다(아래 4.6).
-- ⚠️ **이슈 #1과의 충돌**: 이슈 #1은 "v1은 로그인 없이"였다. 카카오 로그인을 시작에 두면 익명 게스트 세션을 **대체할지 / 폴백으로 둘지** 결정 필요(9번 참고).
+- **이슈 #1과의 정리(확정)**: **게스트 세션을 유지하고 카카오는 선택**으로 둔다([0001 ADR §7](decisions/friend-recommendation/0001-recommendation-algorithm.md)). 게스트로 시작 → 친구 기능 사용 시 카카오 유도 → `AuthIdentity` 로 게스트→카카오 승격(`userId` 유지).
 - `displayName`/`avatarUrl` 은 카카오 프로필에서 채운다(동의 항목 범위 내).
 
 ---
@@ -66,26 +66,35 @@ FoodAnalysis 1───0..1 FoodRecord      (분석 → 기록 출처 추적)
 ### 2.2 Prisma 스키마 (설계안)
 ```prisma
 // 사용자(카카오 로그인 / 추후 타 OAuth 연결 대상)
+// 친구 추천 신호는 decisions/friend-recommendation/0001-recommendation-algorithm.md 참조.
 model User {
-  id           String   @id @default(uuid())
-  displayName  String                          // 카카오 닉네임 또는 게스트 기본값
-  avatarUrl    String?
-  isGuest      Boolean  @default(true)          // 카카오 로그인 사용자는 false
-  tokenVersion Int      @default(0)             // JWT 일괄 무효화용
-  friendCount  Int      @default(0)             // 친구 수(추천 정렬용, denormalized)
-  postCount    Int      @default(0)             // 활동수=피드에 올린 글 수(추천 정렬용, denormalized)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String    @id @default(uuid())
+  displayName    String                          // 카카오 닉네임 또는 게스트 기본값
+  avatarUrl      String?
+  isGuest        Boolean   @default(true)         // 카카오 로그인 사용자는 false
+  tokenVersion   Int       @default(0)            // JWT 일괄 무효화용
+  // ── 친구 추천용 denormalized 신호 (단방향 follow) ──
+  followerCount  Int       @default(0)            // 나를 follow한 수(인기 정렬)
+  followingCount Int       @default(0)            // 내가 follow한 수(FoF 탐색)
+  postCount      Int       @default(0)            // 활동수=피드에 올린 글 수
+  lastPostedAt   DateTime?                        // 활동 최근성(publishToFeed 시 갱신)
+  goalDirection  GoalDir?                         // 목표 방향(Profile에서 파생·denorm, 후보 필터)
+  ageBucket      Int?                             // birthYear→10년 버킷(후보 필터)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   profile       Profile?
   identities    AuthIdentity[]
   analyses      FoodAnalysis[]
   records       FoodRecord[]
-  following     FriendRelation[] @relation("follower")   // 내가 친구로 추가한 관계
-  followers     FriendRelation[] @relation("following")  // 나를 친구로 추가한 관계
+  following     FriendRelation[] @relation("follower")   // 내가 follow한 관계
+  followers     FriendRelation[] @relation("following")  // 나를 follow한 관계
+  recFeedback   FriendRecFeedback[] @relation("recOwner")
 
   @@index([displayName])                        // 친구 검색
-  @@index([friendCount, postCount])             // 친구 추천 정렬(친구수↓ → 활동수↓)
+  @@index([followerCount, postCount])           // 인기·활동 정렬
+  @@index([goalDirection, ageBucket])           // ③ 목표유사 후보 생성(P0 핵심 경로)
+  @@index([lastPostedAt])                       // 활동 폴백 후보
 }
 
 // 추후 OAuth 연결(익명 계정 유지한 채 provider 연결)
@@ -190,7 +199,21 @@ model FriendRelation {
   @@index([followingId])                          // 맞팔/팔로워 조회
 }
 
+// 친구 추천 노출/거절 이력 (impression discounting — 이미 본/숨긴 추천 디스카운트)
+model FriendRecFeedback {
+  userId      String                              // 추천을 받은 사람(나)
+  candidateId String                              // 추천된 후보
+  action      RecAction                           // shown | dismissed | hidden
+  createdAt   DateTime @default(now())
+  user        User     @relation("recOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, candidateId])
+  @@index([userId, action])
+}
+
 enum Gender         { male female other }
+enum GoalDir        { lose maintain gain }       // 목표 방향(추천 후보 필터)
+enum RecAction      { shown dismissed hidden }   // 추천 피드백
 enum AuthProvider   { google kakao }
 enum CaptureSource  { camera gallery }
 enum AnalysisStatus { processing completed failed }
@@ -199,7 +222,8 @@ enum MealType       { breakfast lunch dinner snack }
 
 ### 2.3 설계 메모
 - **`FoodAnalysis.result` 는 jsonb**(저장 전 임시·가변). 영구·집계 대상은 정규화된 `FoodRecord`/`FoodItem` 컬럼이 진실.
-- **친구 기능은 두 화면**: ① 친구 목록 화면(`GET /v1/friends`) ② 추천/검색 화면(`GET /v1/friends/search` + follow/unfollow). 둘 다 `FriendRelation`(단방향, follower→following) 테이블을 사용. 추천/검색에서 선택하면 친구 목록에 추가된다. `selected` = "이미 내 친구인가". `mutualFriendCount` = 나의 following ∩ 상대의 following (v1은 seed라 0 가능).
+- **친구 기능은 두 화면**: ① 친구 목록 화면(`GET /v1/friends`) ② 추천/검색 화면(`GET /v1/friends/search` + follow/unfollow). 둘 다 `FriendRelation`(단방향, follower→following) 테이블을 사용. 추천/검색에서 선택하면 친구 목록에 추가된다. `selected` = "이미 내 친구인가". `mutualFriendCount` = 나의 following ∩ 상대의 following = **추천 랭킹 1순위 신호**(FoF self-join의 `COUNT(*)`로 산출, 카카오/폴백 후보는 0 가능).
+- **추천 신호 카운터(denormalized)**: `followerCount`(나를 follow, 인기 정렬)·`followingCount`(내가 follow, FoF 탐색)·`postCount`·`lastPostedAt`(활동). 목표유사 후보 필터용 `goalDirection`·`ageBucket`은 `Profile` 저장 시 User에 파생 저장. 알고리즘 상세는 [decisions/friend-recommendation/0001](decisions/friend-recommendation/0001-recommendation-algorithm.md).
 - **삭제 정책**: User 삭제 시 하위 전부 `Cascade`. 단 `FoodRecord.analysis` 는 출처 보존 위해 `SetNull` 성격(analysisId nullable).
 - **마이그레이션**: `prisma migrate dev`(개발) / `prisma migrate deploy`(배포). seed 사용자(친구 검색용 mock)는 `prisma/seed.ts`.
 
@@ -270,7 +294,7 @@ enum MealType       { breakfast lunch dinner snack }
 - zod 검증: birthYear(예 1920~현재, age 14세 이상), heightCm(예 80~250), weight(예 20~400), targetDate(미래), gender enum.
 - 흐름:
   - → 3.1 로 `dailyCalorieTarget`, `weeklyWeightDelta` 계산.
-  - DB: `Profile` **upsert** (userId 기준) — 재호출 멱등.
+  - DB: `Profile` **upsert** (userId 기준) — 재호출 멱등. 동시에 **`User.goalDirection`**(targetWeightKg−currentWeightKg 부호 → lose/maintain/gain) + **`User.ageBucket`**(birthYear→10년 버킷) 파생 갱신(추천 후보 필터용).
   - 캐시: home 무효화.
 - RESP `200`: `{ profile, dailyCalorieTarget, weeklyWeightDelta }`.
 - 실패: `400` + fields → 앱은 화면 유지 + 입력 보존.
@@ -299,35 +323,46 @@ enum MealType       { breakfast lunch dinner snack }
 - RESP `200`: `{ friends: [...], nextCursor? }`.
 
 ### 4.6 `GET /v1/friends/search?q=` — 친구 추천/검색 (친구 추가용)
-- **친구를 추가하기 위한** 추천/검색 화면용. 위 친구 목록과는 **다른 화면**.
-- 공통 정렬·페이징: **친구수(`friendCount`) 많은 순 → 활동수(`postCount`=피드에 올린 글 수) 많은 순**. 동률 tie-break는 `id`.
-  - 무한 스크롤: 복합 keyset cursor `(friendCount, postCount, id)`. `?cursor=&limit=`(기본 20), `nextCursor`(null이면 끝).
-  - 후보에서 항상 **본인 / 이미 내 친구**는 제외.
+> 알고리즘 결정: [decisions/friend-recommendation/0001](decisions/friend-recommendation/0001-recommendation-algorithm.md). 아래는 그 구현 계약.
 
-- **`q` 빈값 = 추천 목록** — **내 친구 수로 분기**:
-  - **내 친구 0명** → 후보 = **내 카카오톡 친구 중 우리 앱 가입자**(카카오 친구목록 API ∩ `AuthIdentity(provider=kakao)`). 위 정렬로 리스트업.
-  - **내 친구 1명 이상** → 후보 = **친구의 친구**(내 친구들의 친구 합집합). 위 정렬로 리스트업.
-  - 두 경우 모두 본인·이미 친구 제외, 친구수↓ → 활동수↓ 정렬, cursor 무한 스크롤.
-  - ⚠️ 카카오 분기는 **카카오 로그인 + 친구목록 동의**(1.5)가 전제. 미연동 상태면 추천이 비거나 seed로 대체.
+- **친구를 추가하기 위한** 추천/검색 화면용. 위 친구 목록과는 **다른 화면**. 후보에서 항상 **본인 / 이미 내 친구** 제외.
 
-- **`q` 있음 = 검색**: `User.displayName ILIKE %q%`(본인 제외). 디바운스는 클라. 이미 친구인 사람은 표시하되 `selected=true`. 정렬은 동일(친구수↓ → 활동수↓).
-- 각 row의 `selected` = "이미 내 친구인가" = `FriendRelation(follower=me, following=row)` 존재 여부.
-- RESP `200`: `{ users: [{ id, displayName, friendCount, postCount, mutualFriendCount, selected }], nextCursor? }`.
+- **`q` 빈값 = 추천 목록** — 2단계 깔때기(후보 생성 → 결정론적 랭킹, ML 없음):
+
+  **① 후보 생성(union + 우선순위, 하드스위치 아님)** — 인덱스로 싸게 좁힌다(소스별 `LIMIT`):
+  - **FoF**: 내 친구의 친구(`FriendRelation` self-join). `statement_timeout` + 슈퍼노드 degree cap.
+  - **카카오 친구**: 카카오 친구목록 API ∩ `AuthIdentity(provider=kakao)`. (카카오 로그인+친구 scope 검수 전제 — 미연동 시 생략)
+  - **목표/활동 폴백**: `goalDirection=me ∧ ageBucket=me`(`@@index([goalDirection,ageBucket])`), 부족하면 `lastPostedAt` 최신순. → P0 런칭기 빈 화면 방지.
+
+  **② 랭킹(좁혀진 소수 후보에만 점수 계산)**:
+  ```
+  score = w1·mutualFriendCount + w2·goalSimilarity + w3·activityRecency
+        + w4·followerCount − w5·alreadyShownPenalty,   tie-break: id
+  ```
+  - `mutualFriendCount`: FoF self-join `COUNT(*)`. `goalSimilarity∈[0,1]`: 목표방향·강도·나이대·칼로리 근접(ADR §3). `activityRecency`: `postCount`+`lastPostedAt`. `alreadyShownPenalty`: `FriendRecFeedback`.
+  - **가중치는 네트워크 성숙도에 따라 이동**: P0 런칭(목표유사도·활동 주력, mutual≈0) → P3 성숙(공통친구 지배).
+
+  **③ 페이징** — ⚠️ 1·2순위가 **계산값이라 DB keyset 불가**:
+  - 좁힌 후보에 점수 계산 → 정렬 리스트를 **Redis 캐시**(수시간 TTL) → 페이징은 **캐시된 정렬 리스트** 기준. `?cursor=&limit=`(기본 20)는 캐시 리스트의 offset/토큰. follow/unfollow·새 글 시 해당 유저 추천 캐시 무효화.
+
+- **`q` 있음 = 검색**: `User.displayName ILIKE %q%`(본인 제외, `pg_trgm` 고려). 이미 친구인 사람은 표시하되 `selected=true`. 정렬은 동일 점수식(검색은 후보=매치된 유저).
+- 각 row `selected` = `FriendRelation(follower=me, following=row)` 존재 여부.
+- RESP `200`: `{ users: [{ id, displayName, avatarUrl?, followerCount, postCount, mutualFriendCount, selected }], nextCursor? }`.
 - 실패 시 앱은 기존 결과 유지 + inline retry.
-- 성능: `friendCount`/`postCount` 는 **denormalized 카운터**(User)로 두고 정렬·cursor에 사용(매 요청 집계 금지). 카카오 친구 매칭 결과는 짧은 TTL로 캐시.
+- 성능: 카운터(`followerCount`/`postCount`/`lastPostedAt`)·필터키(`goalDirection`/`ageBucket`)는 denormalized → 후보 생성/정렬에 사용(매 요청 집계 금지). 후보 신호는 **batch 조회**(N+1 금지).
 
 ### 4.7 `POST /v1/friends/{friendUserId}/follow` — 친구 추가 (추천/검색에서 선택)
 - 추천/검색 목록의 row를 선택하면 **친구로 추가**된다.
 - 검증: 자기 자신 추가 금지(`400`), 대상 존재 확인(`404`).
-- DB(tx): `FriendRelation` insert(`@@unique`로 **멱등** — 이미 친구면 카운터 변동 없음) + **본인 `friendCount` +1**(denormalized, 추천 정렬용). *(친구를 상호관계로 본다면 양쪽 +1 — 9번 결정 필요)*
-- 캐시: home, friends, search 관련 무효화.
+- DB(tx): `FriendRelation` insert(`@@unique`로 **멱등** — 이미 친구면 카운터 변동 없음) + **본인 `followingCount` +1** + **대상 `followerCount` +1**(denormalized; 단방향 follow, 9번 결정 반영).
+- 캐시: home, friends, search 관련 무효화(본인·대상 추천 캐시 포함).
 - RESP `200`: `{ friendUserId, selected: true }`.
 - 성공 시 앱은 해당 row와 친구 목록/홈 친구 영역을 갱신한다.
 
 ### 4.8 `DELETE /v1/friends/{friendUserId}/follow` — 친구 제거 (선택 해제)
 - 선택 해제 시 **친구에서 제거**된다.
-- DB(tx): `FriendRelation` delete (실제 삭제된 경우에만 **본인 `friendCount` −1**; 없으면 `200`, 카운터 변동 없음 — 멱등).
-- 캐시: home, friends, search 무효화.
+- DB(tx): `FriendRelation` delete (실제 삭제된 경우에만 **본인 `followingCount` −1** + **대상 `followerCount` −1**; 없으면 `200`, 카운터 변동 없음 — 멱등).
+- 캐시: home, friends, search 무효화(본인·대상 추천 캐시 포함).
 - RESP `200`: `{ friendUserId, selected: false }`.
 
 ### 4.9 `POST /v1/food-analyses` — 이미지 업로드 + 분석 시작 (multipart)
@@ -375,7 +410,7 @@ enum MealType       { breakfast lunch dinner snack }
 - zod: enum/숫자/합계 정합(`items` 합 ≈ `totalCalories`/macros — 경고만, 사용자 수정 우선).
 - 흐름(**트랜잭션**):
   - → `eatenLocalDate` = `eatenAt` 의 KST date 계산.
-  - DB tx: `FoodRecord` insert + `FoodItem[]` bulk insert. `analysisId` 있으면 연결(`@unique`). `publishToFeed=true` 면 **본인 `postCount` +1**(활동수, 추천 정렬용).
+  - DB tx: `FoodRecord` insert + `FoodItem[]` bulk insert. `analysisId` 있으면 연결(`@unique`). `publishToFeed=true` 면 **본인 `postCount` +1 + `lastPostedAt`=now**(활동수·최근성, 추천 정렬용).
   - 캐시: `home:{userId}`, `calendar:{userId}:{date}` 무효화.
 - RESP `201`: `{ recordId, record, dailySummary }` (그날 갱신된 요약 포함 → 앱이 홈/캘린더 즉시 반영).
 - 실패: form state 유지(앱). 서버는 부분저장 없도록 tx 보장.
@@ -394,8 +429,8 @@ enum MealType       { breakfast lunch dinner snack }
 ## 5. 부트스트랩 전체 시퀀스 (앱↔서버)
 ```
 앱 시작
- ├─ (도입 예정) 카카오 로그인 → AuthIdentity(kakao) upsert → sessionToken 발급
- │     ※ Figma 로그인 화면 미정. 게스트 대체/폴백 여부는 9번 결정.
+ ├─ (선택) 카카오 로그인 → AuthIdentity(kakao) upsert → sessionToken 발급
+ │     ※ Figma 로그인 화면 미정. 게스트 폴백 유지·카카오 선택 확정(0001 ADR §7).
  ├─ secure storage sessionToken?
  │   ├─ 없음 → 카카오 로그인(또는 POST /v1/sessions/guest) → 토큰 저장 → 프로필설정 화면
  │   └─ 있음 → GET /v1/me/profile
@@ -411,7 +446,7 @@ enum MealType       { breakfast lunch dinner snack }
 - `GET /v1/food-records/{recordId}` 상세 조회.
 - 음식 상세 화면 / "수정하기" 버튼.
 - `PATCH /v1/food-records/{recordId}` 기존 기록 수정.
-- 카카오 **친구목록 매칭**: 비즈앱 검수 전까지 미동작 → 그 동안 "친구 0명" 추천은 seed로 대체(친구의 친구 추천은 범위 안).
+- 카카오 **친구목록 매칭**: 비즈앱 검수 전까지 미동작 → 그 동안 추천은 **목표유사도+활동 폴백**으로 대체(FoF 추천은 범위 안). [0001 ADR §6](decisions/friend-recommendation/0001-recommendation-algorithm.md).
 - 카카오 **외** 로그인(구글 등) — 미논의(스키마는 `AuthIdentity`로 확장 대비).
 
 ---
@@ -424,9 +459,10 @@ enum MealType       { breakfast lunch dinner snack }
 
 ## 8. 인덱스/성능 체크리스트
 - `User.displayName` (친구 검색 ILIKE — 대량 시 `pg_trgm` GIN 고려).
+- **추천**: `User(followerCount, postCount)`(인기·활동), `User(goalDirection, ageBucket)`(목표유사 후보), `User(lastPostedAt)`(활동 폴백). `FriendRecFeedback(userId, action)`.
 - `FoodRecord(userId, eatenLocalDate)` (홈 오늘/캘린더 핫경로).
 - `FoodAnalysis(userId, createdAt)`, `FoodItem(recordId)`, `FriendRelation @@unique + followingId`.
-- 친구 목록 / 추천·검색 목록은 **무한 스크롤**(cursor 기반 더 불러오기 `?cursor=&limit=`). Gemini 호출은 큐로 동시성 상한.
+- 친구 **목록**은 cursor keyset 무한 스크롤. **추천**은 랭킹 1·2순위(mutual·goalSimilarity)가 계산값이라 DB keyset 불가 → **후보 좁히기 → 점수 계산 → 정렬 리스트 Redis 캐시 → 캐시 페이징**([ADR §8](decisions/friend-recommendation/0001-recommendation-algorithm.md)). Gemini 호출은 큐로 동시성 상한.
 
 ---
 
@@ -435,14 +471,15 @@ enum MealType       { breakfast lunch dinner snack }
 - 권장 칼로리: **프로필 설정 STEP 2 화면에서 `birthYear`(생년) 입력**받아 Mifflin BMR 계산. **활동량은 입력받지 않고** 서버 고정계수 `1.4` 사용.
 - **로그인: 앱 시작 시 카카오톡 로그인 도입 예정**(그 외 방법 미논의). Figma 로그인 화면 디자인은 아직 없음.
 - 친구는 **친구 목록 화면(`GET /v1/friends`)** 과 **추천/검색 화면(`GET /v1/friends/search`)** 두 개로 분리. 추천/검색에서 선택하면 친구 목록에 추가. 두 목록 모두 **무한 스크롤**(cursor 기반).
-- 친구 **추천**(공통 정렬: **친구수↓ → 활동수(글수)↓**, 본인·이미 친구 제외):
-  - **내 친구 0명** → **카카오톡 친구**(우리 앱 가입자) 기반.
-  - **내 친구 1명+** → **친구의 친구** 기반.
+- 친구 **추천 알고리즘 확정** → [decisions/friend-recommendation/0001](decisions/friend-recommendation/0001-recommendation-algorithm.md). 요지: 2단계 깔때기(후보 생성→결정론적 랭킹), 랭킹 `mutualFriendCount → goalSimilarity → activityRecency → followerCount → id`, 후보 union(FoF·카카오·목표/활동 폴백), 네트워크 성숙도별 가중치 이동.
+- **관계 모델**: 단방향 follow. 카운터 `followerCount`(인기)/`followingCount`(FoF) 분리.
+- **로그인**: 게스트 폴백 유지 + 카카오 선택(검수 의존성을 v1 출시 경로에서 분리).
+- **콜드스타트 폴백**: 카카오 미연동 구간은 목표유사도+활동으로 채워 빈 화면 방지.
 
 **남은 질문**
-1. **카카오 로그인 vs 익명 게스트**: 시작 화면에 카카오 로그인을 두면 이슈 #1의 "로그인 없이 v1"과 충돌 → 게스트 세션을 **대체할지/폴백으로 둘지** 결정 필요.
-2. **친구가 상호관계인가 단방향인가**: 단방향이면 follow 시 본인 `friendCount`만 +1, 상호관계면 양쪽 +1(추천 친구수 집계 방식이 달라짐).
-3. 카카오 **친구목록 동의**(친구 scope)는 비즈앱 검수 필요 — 미연동 시 0명 추천이 빈 화면이 됨(seed 대체 여부).
+1. ~~카카오 로그인 vs 게스트~~ → **게스트 폴백 유지, 카카오 선택**(0001 ADR §7).
+2. ~~친구 상호/단방향~~ → **단방향 follow**(0001 ADR §5).
+3. ~~카카오 친구목록 미연동 폴백~~ → **목표유사도+활동 폴백**(0001 ADR §6). 비즈앱 검수 통과 시 카카오 소스 활성화.
 4. `GET /v1/me/profile` 미존재 시 **404 vs 200+null** (본 설계는 200+null 권장).
 5. 분석 경로: **비동기 큐 기본** vs 동기 빠른경로 허용(본 설계는 둘 다 계약 허용, 큐 권장).
 6. 캘린더 타임존: v1 **KST 고정** 가정 — 다국가 지원 시 사용자 tz 컬럼 필요.
