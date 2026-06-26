@@ -6,6 +6,7 @@ import { homeRouter } from './modules/home/home.routes.js';
 import { recordsRouter } from './modules/records/records.routes.js';
 import { calendarRouter } from './modules/calendar/calendar.routes.js';
 import { friendsRouter } from './modules/friends/friends.routes.js';
+import { feedRouter, postsRouter } from './modules/feed/feed.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -21,6 +22,8 @@ app.use('/v1/home', homeRouter);
 app.use('/v1/food-records', recordsRouter);
 app.use('/v1/calendar', calendarRouter);
 app.use('/v1/friends', friendsRouter);
+app.use('/v1/feed', feedRouter);
+app.use('/v1/posts', postsRouter);
 
 // 중앙 에러 핸들러는 마지막.
 app.use(errorHandler);
