@@ -19,5 +19,7 @@ COPY src ./src
 RUN npx prisma generate && npm run build
 
 # 컨테이너 시작 시: 마이그레이션 적용 → 서버 기동
+# (방어: 호스트가 CRLF로 체크아웃해도 컨테이너 bash가 깨지지 않게 CR 제거)
 COPY docker-entrypoint.sh ./
+RUN sed -i 's/\r$//' docker-entrypoint.sh
 ENTRYPOINT ["bash", "docker-entrypoint.sh"]

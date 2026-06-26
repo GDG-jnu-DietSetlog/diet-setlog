@@ -423,7 +423,13 @@ Figma는 읽기 전용이라 아래는 **문서·구현 합의로 확정**하되
 6. **`targetDate` 직렬화** — 응답에서 `YYYY-MM-DD`(date-only) 문자열로 직렬화 확정(Prisma `@db.Date` → `toISOString().slice(0,10)`).
 7. **백엔드 실행 = Docker 전체** — `server/docker-compose.yml`로 DB+서버를 함께 띄운다(`docker compose up --build`, 컨테이너 시작 시 `prisma migrate deploy` 자동). 호스트엔 Node만 있으면 됨. Redis/MinIO는 후속 wave에서 같은 compose에 추가.
 
-> 이 7개는 파일럿이 없었으면 7개 도메인 에이전트가 **제각각 다르게 구현**했을 것 — 팬아웃 전에 파일럿으로 길을 닦은 효과.
+**records+calendar 도메인(#13)에서 추가 발견:**
+
+8. **`FoodRecord.imageUrl`은 요청 바디에 없음** — `POST /v1/food-records` 바디에 imageUrl 필드가 없다. → **확정: `analysisId`로 연결된 `FoodAnalysis.imageUrl`을 승계**(analysisId 없으면 null). (`records.routes.ts`)
+9. **날짜 검증은 regex만으론 부족 → 500 유발** — `^\d{4}-\d{2}-\d{2}$`는 `2026-13-99`·`2026-02-30`(JS가 3-02로 롤오버)을 통과시켜 `new Date` Invalid → Prisma 쿼리에서 500. → **확정: 모든 날짜 입력은 엄격검증(`isStrictYmd`: 파싱 후 왕복 일치)으로 `400` 반환.** `targetDate`(profile)·`date`(calendar) 모두 적용. (`lib/kst.ts`)
+10. **CRLF 줄바꿈이 컨테이너 셸을 깨뜨림** — Windows 호스트에서 `git`이 `docker-entrypoint.sh`를 CRLF로 체크아웃하면 컨테이너 bash가 `$'\r'`로 깨짐. → **확정: 루트 `.gitattributes`로 `*.sh`·Dockerfile 등 LF 고정 + Dockerfile에서 `sed`로 CR 제거(2중 방어).**
+
+> 파일럿+records 도메인을 실제로 빌드·실행하지 않았으면 8·9·10은 전부 런타임에서야 터졌을 구멍 — 특히 9는 명백한 500 버그였다.
 
 ---
 
