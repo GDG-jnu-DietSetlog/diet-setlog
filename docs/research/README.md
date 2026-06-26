@@ -7,6 +7,7 @@ diet-setlog 개발 중 수행한 **조사(research)** 들을 주제별로 모아
 
 | 조사 | 폴더 | 한 줄 요약 | 상태 |
 |------|------|-----------|------|
+| 친구 추천(PYMK) | [`friend-recommendation/`](friend-recommendation/README.md) | 해외 서비스의 친구추천 구현 방식 — 알고리즘·콜드스타트·연락처매칭/프라이버시·아키텍처 | ✅ 1차 완료 (2026-06) |
 | GitHub Actions CI 검사 | [`github-actions-ci/`](github-actions-ci/README.md) | 유명 OSS의 CI 검사 패턴(컨벤션·lint·빌드·커버리지·보안·라벨·모노레포·릴리스)과 diet-setlog 도입안 | ✅ 1차 완료 (2026-06) |
 
 > 새 조사가 생기면 위 표에 한 줄 추가한다.
