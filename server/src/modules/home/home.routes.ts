@@ -1,46 +1,14 @@
 import { Router } from 'express';
-import type { FoodRecord, FoodItem } from '@prisma/client';
 import { prisma } from '../../prisma.js';
 import { authGuard } from '../../middleware/auth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { AppError } from '../../http/errors.js';
 import { kstToday } from '../../lib/kst.js';
+import { recordCard, sumRecords } from '../../lib/serialize.js';
 
 export const homeRouter = Router();
 
 const RECENT_LIMIT = 10; // spec-lock §6: recentRecords N=10
-
-function macros(r: { proteinG: number; carbsG: number; fatG: number }) {
-  return { proteinG: r.proteinG, carbsG: r.carbsG, fatG: r.fatG };
-}
-
-function recordCard(r: FoodRecord & { items: FoodItem[] }) {
-  return {
-    id: r.id,
-    title: r.title,
-    imageUrl: r.imageUrl,
-    mealType: r.mealType,
-    eatenAt: r.eatenAt.toISOString(),
-    totalCalories: r.totalCalories,
-    macros: macros(r),
-    memo: r.memo,
-    publishedToFeed: r.publishedToFeed,
-    likeCount: r.likeCount,
-    commentCount: r.commentCount,
-    items: r.items
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((it) => ({
-        id: it.id,
-        name: it.name,
-        amount: it.amount,
-        calories: it.calories,
-        proteinG: it.proteinG,
-        carbsG: it.carbsG,
-        fatG: it.fatG,
-        sortOrder: it.sortOrder,
-      })),
-  };
-}
 
 // GET /v1/home — todaySummary / friendsCertifiedToday / currentUser / recentRecords.
 // ⚠️ 계약 구멍: profile 미존재 시 home 동작? 부트스트랩이 profile 보장하지만 방어 필요.
@@ -69,11 +37,9 @@ homeRouter.get(
     if (!profile) throw new AppError('NOT_FOUND', 'profile required before home');
 
     // todaySummary
-    const totalCalories = todayRecords.reduce((s, r) => s + r.totalCalories, 0);
-    const sumMacros = todayRecords.reduce(
-      (acc, r) => ({ proteinG: acc.proteinG + r.proteinG, carbsG: acc.carbsG + r.carbsG, fatG: acc.fatG + r.fatG }),
-      { proteinG: 0, carbsG: 0, fatG: 0 },
-    );
+    const sum = sumRecords(todayRecords);
+    const totalCalories = sum.totalCalories;
+    const sumMacros = { proteinG: sum.proteinG, carbsG: sum.carbsG, fatG: sum.fatG };
     const calorieTarget = profile.dailyCalorieTarget;
 
     // friendsCertifiedToday: 내가 follow한 사람 중 오늘 기록 1건+

@@ -5,7 +5,7 @@ import { prisma } from '../../prisma.js';
 import { authGuard } from '../../middleware/auth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { calcProfile } from '../../lib/calorie.js';
-import { kstToday } from '../../lib/kst.js';
+import { kstToday, isStrictYmd } from '../../lib/kst.js';
 
 export const profileRouter = Router();
 
@@ -22,7 +22,7 @@ const upsertSchema = z.object({
   targetWeightKg: z.number().min(20).max(400),
   targetDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD')
+    .refine(isStrictYmd, 'expected valid YYYY-MM-DD')
     .refine((s) => {
       const t = new Date(`${s}T00:00:00Z`).getTime();
       const now = Date.now();
