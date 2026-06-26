@@ -1,46 +1,58 @@
 # GitHub Actions CI 도입 — 결정
 
-- **현재 상태**: 🟡 검토 중(미확정) — **아직 아무것도 결정 안 함. 공간만 잡아둠.**
-- **최종 갱신**: 2026-06
+- **현재 상태**: ✅ 확정 (검사 항목은 코드 스캐폴딩 시점에 단계적 활성화)
+- **최종 갱신**: 2026-06-26
 - **관련**: [리서치](../../research/github-actions-ci/README.md) · [설계](../../api-db-design.md) · [CLAUDE.md](../../../CLAUDE.md)
 - **상위 카탈로그**: [../README.md](../README.md)
 
-> 이 폴더는 "GitHub Actions CI 도입" 결정 주제 하나를 담는 **빈 자리**다.
-> 리서치를 읽고 무엇을 어디까지 도입할지 정해지면 아래 "결정"을 채운다.
+> 이 폴더는 "GitHub Actions CI 도입" 결정 주제를 담는다. 아래는 **현재 유효한 결정 요약**이고,
+> 상세 근거·영향은 세부 ADR에 있다.
 
 ## 맥락 (Context)
 
-diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, 방금 Angular 커밋 컨벤션 + 제목 끝 `(#이슈번호)` + 브랜치 보호를 도입했다. 이어서 PR 머지 전 자동 검사(CI)를 도입할지, 한다면 어디까지를 지금 도입할지 정해야 한다.
+diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 커밋 컨벤션 + 제목 끝 `(#이슈번호)` + 브랜치 보호를 도입했다. 이어서 PR 머지 전 자동 검사(CI)를 **어디까지 지금 도입할지** 정해야 한다.
 
 - **근거 자료**: [GitHub Actions CI 리서치](../../research/github-actions-ci/README.md) — 검사 패턴 + diet-setlog 도입안(우선순위·단계).
 
 ## 결정 (Decision)
 
-_미정 — 결정 안 함. 리서치 검토 후 작성._
+→ 상세: [0001. CI 도입 범위 — 스캐폴딩 단계별 활성화](0001-ci-adoption-scope.md)
+
+**핵심**: "대상 코드가 없는 검사는 넣지 않는다." 검사를 그 대상이 생기는 시점에 활성화한다.
+
+- **묶음 1 — 지금**: 커밋/PR 컨벤션(적용됨) · Secret scanning + push protection · Dependabot(github-actions) · 문서 링크 체크. 
+  비코드(문서·제목·컨벤션) 검사는 **워크플로 1개(`docs-and-conventions.yml`) 아래 하위 잡**으로 통합.
+- **묶음 2 — `server/` 스캐폴딩 시**: eslint·prettier·`tsc --noEmit`·test·CodeQL·Dependabot(npm).
+- **묶음 3 — `app/` 스캐폴딩 시**: `dart format`·`flutter analyze`·`flutter test`·Dependabot(pub).
+- 두 묶음 가동 시 **paths-filter + 집계 status gate**(스킵-잡 required 함정 회피).
+- **보류**: 커버리지 게이트(테스트 없음)·릴리스 자동화·라벨러/stale·DCO/CLA.
 
 ## 열린 질문 (정할 것)
 
-- [ ] 1차 도입 범위 (어떤 검사부터)
-- [ ] 커밋 검사 방식 (PR 제목만 vs 모든 커밋 commitlint) — 머지 전략과 함께
-- [ ] 테스트/커버리지 게이트 적용 여부·강도
-- [ ] 보안 스캔 범위 (Dependabot / secret scanning / CodeQL)
-- [ ] 모노레포 paths-filter + required status check 구성
+- [x] 1차 도입 범위 → 묶음 1만 지금, 코드 검사는 스캐폴딩 트리거 ([0001](0001-ci-adoption-scope.md))
+- [x] 커밋 검사 방식 → PR 제목(semantic) + 모든 커밋 commitlint, 비코드 검사로 통합
+- [x] 보안 스캔 범위(1차) → secret scanning + push protection + Dependabot(actions); CodeQL은 server 생길 때
+- [ ] 테스트/커버리지 게이트 강도 (테스트 생긴 뒤)
+- [ ] 모노레포 paths-filter + required status check 세부 구성 (app·server 둘 다 생길 때)
 - [ ] 릴리스 자동화 도입 여부·시점
 
 ## 근거 (Rationale)
 
-_확정 시 작성 — research 근거 링크와 함께._
+헛도는 required check는 머지를 막거나 항상 초록이라 신호를 죽인다. 보안(시크릿·의존성)은 코드보다 먼저 유효하고 되돌리기 어렵다. 현재 주력 산출물이 `docs/`라 링크 체크 ROI가 높다. 상세: [0001 §근거](0001-ci-adoption-scope.md).
 
 ## 영향 (Consequences)
 
-_확정 시 작성 — `.github/workflows/` 등 무엇이 바뀌는지._
+- 비코드 검사 통합: `commitlint.yml` + `pr-title.yml` → `docs-and-conventions.yml`(하위 잡 `pr-title`/`commitlint`/`docs-links`).
+- 저장소 설정: Secret scanning + push protection 활성화, `.github/dependabot.yml`(github-actions).
+- `server/`·`app/` 스캐폴딩 PR 정의에 해당 묶음 CI 추가를 포함. 상세: [0001 §영향](0001-ci-adoption-scope.md).
 
 ## 재검토 트리거 (Revisit when)
 
-_확정 시 작성 — 어떤 규모/조건이 되면 다시 연다._
+`server/`/`app/` 스캐폴딩 · 테스트 성숙 · 첫 배포 파이프라인 · 이슈/PR 급증·외부 기여 시작. 상세: [0001 §재검토 트리거](0001-ci-adoption-scope.md).
 
 ## 변경 이력 (Revision log)
 
 | 날짜 | 변경 | 상태 |
 |------|------|------|
 | 2026-06 | 빈 자리 생성(결정 없음) | 🟡 검토 중 |
+| 2026-06-26 | 도입 범위 확정([0001](0001-ci-adoption-scope.md)) — 단계별 활성화, 비코드 검사 워크플로 통합 | ✅ 확정 |

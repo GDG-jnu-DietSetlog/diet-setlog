@@ -12,7 +12,7 @@ diet-setlog의 **설계·제품 결정**을 주제별로 모아둔 디렉터리.
 | 결정 주제 | 폴더 | 한 줄 요약 | 상태 |
 |-----------|------|-----------|------|
 | 친구 추천 | [`friend-recommendation/`](friend-recommendation/README.md) | 2단계 깔때기 + 공통친구/목표유사도 랭킹·단방향 follow·게스트 폴백 ([0001 ADR](friend-recommendation/0001-recommendation-algorithm.md)) | ✅ 확정 |
-| GitHub Actions CI 도입 | [`github-actions-ci/`](github-actions-ci/README.md) | CI 검사(컨벤션·lint·빌드·커버리지·보안·모노레포·릴리스) 단계별 도입 | 🟡 검토 중(미확정) |
+| GitHub Actions CI 도입 | [`github-actions-ci/`](github-actions-ci/README.md) | "대상 코드 생길 때 검사 활성화" — 비코드 검사 통합·스캐폴딩 단계별 ([0001 ADR](github-actions-ci/0001-ci-adoption-scope.md)) | ✅ 확정 |
 
 > 상태 범례: 🟡 검토 중(Proposed) · ✅ 확정(Accepted) · ♻️ 대체됨(Superseded) · ❌ 폐기(Rejected)
 > 새 결정 주제가 생기면 위 표에 한 줄 추가하고 `<주제-kebab-case>/` 폴더를 만든다.
