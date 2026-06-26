@@ -411,6 +411,22 @@ Figma는 읽기 전용이라 아래는 **문서·구현 합의로 확정**하되
 
 ---
 
+## 13.5 파일럿 슬라이스에서 발견된 계약 보강 (구현으로 검증됨)
+
+`server/` 파일럿(session→profile→home)을 실제로 빌드·실행하며 드러난, 문서만으론 안 보였던 구멍들. **아래는 구현 시 따를 확정값**이다.
+
+1. **`gender="other"`의 BMR 상수가 명세에 없음** — Mifflin 식은 male(+5)/female(−161)만 정의. → **확정: other = 두 상수의 평균 `−78`** 사용. (`server/src/lib/calorie.ts`)
+2. **stateless ↔ tokenVersion 무효화 긴장** — "요청마다 DB 조회 없이 서명만 검증"(stateless)과 "tokenVersion 불일치 거부"(DB 조회 필요)가 충돌. → **확정: authGuard는 서명만 검증(무DB). tokenVersion 체크는 민감 동작(로그아웃/탈취 대응)에서만 별도 수행.**
+3. **`GET /v1/home` 인데 profile 미존재** — 부트스트랩이 보장하지만 방어 필요. → **확정: profile 없으면 `404 NOT_FOUND`("profile required").**
+4. **`profile: null` 일 때 나머지 두 필드 값** — `ProfileResponse`는 `dailyCalorieTarget`·`weeklyWeightDelta`를 항상 요구. → **확정: profile 없으면 둘 다 `0`.**
+5. **Prisma enum 단일행 표기 불가** — api-db-design §2.2의 `enum Gender { male female other }` 압축 표기는 **실제 Prisma에서 컴파일 안 됨**(값마다 개행 필수). → 스키마 작성 시 멀티라인. (문서 스니펫은 가독성용, 실제 코드는 멀티라인)
+6. **`targetDate` 직렬화** — 응답에서 `YYYY-MM-DD`(date-only) 문자열로 직렬화 확정(Prisma `@db.Date` → `toISOString().slice(0,10)`).
+7. **백엔드 실행 = Docker 전체** — `server/docker-compose.yml`로 DB+서버를 함께 띄운다(`docker compose up --build`, 컨테이너 시작 시 `prisma migrate deploy` 자동). 호스트엔 Node만 있으면 됨. Redis/MinIO는 후속 wave에서 같은 compose에 추가.
+
+> 이 7개는 파일럿이 없었으면 7개 도메인 에이전트가 **제각각 다르게 구현**했을 것 — 팬아웃 전에 파일럿으로 길을 닦은 효과.
+
+---
+
 ## 13. 재현성 자가 체크리스트
 
 두 팀이 이 문서 + openapi.yaml + 기존 plans로 빌드했을 때 동일해야 하는 것:
