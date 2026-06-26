@@ -22,7 +22,7 @@ jobs:
       - name: Run commitlint
         uses: wagoid/commitlint-github-action@v6
         with:
-          configFile: commitlint.config.js
+          configFile: commitlint.config.mjs
           # PR base..head 사이의 커밋만 검사
           failOnWarnings: true
           helpURL: https://github.com/GDG-jnu-DietSetlog/diet-setlog/blob/main/CONTRIBUTING.md
