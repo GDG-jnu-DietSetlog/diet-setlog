@@ -5,7 +5,7 @@ diet-setlog의 **설계·제품 결정**을 주제별로 모아둔 디렉터리.
 그래서 결정 1건을 단일 파일로 끝내지 않고, **결정 주제 = 폴더 1개**(research와 동일 패턴)로 두어 그 안에서 현재 결정 + 변경 이력 + 하위 결정을 함께 관리한다.
 
 - **research vs decisions**: [`../research/`](../research/README.md)는 *조사·근거*, 여기 `decisions/`는 *그 근거로 내린 결론*.
-- **설계 문서**([`../api-db-design.md`](../api-db-design.md))의 "열린 질문"이 확정되면, 그 결과를 해당 결정 폴더에 남기고 설계 문서를 갱신한다.
+- **설계 문서**([`../plans/api-db-design.md`](../plans/api-db-design.md))의 "열린 질문"이 확정되면, 그 결과를 해당 결정 폴더에 남기고 설계 문서를 갱신한다.
 
 ## 결정 목록
 
@@ -42,7 +42,7 @@ docs/decisions/
 
 - **상태**: 🟡 검토 중 | ✅ 확정 | ♻️ 대체됨 | ❌ 폐기
 - **날짜**: YYYY-MM-DD
-- **관련**: ../../api-db-design.md §X, ../../research/<주제>/README.md, 이슈 #N
+- **관련**: ../../plans/api-db-design.md §X, ../../research/<주제>/README.md, 이슈 #N
 
 ## 맥락 (Context)
 무엇을 정해야 하는가, 왜 지금 결정이 필요한가, 제약·규모 가정은 무엇인가.

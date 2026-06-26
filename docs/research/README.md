@@ -29,4 +29,4 @@ docs/research/
 - **폴더 README.md**: 그 조사의 TL;DR + 소문서 목록 + diet-setlog 설계와의 연결(시사점)을 담는다.
 - **세부 문서**: `01-`, `02-` … 숫자 프리픽스로 읽는 순서를 고정.
 - **출처 명시**: 조사 문서는 공식 문서/논문/엔지니어링 블로그 출처를 달고, 추정·불확실한 부분은 본문에 표시한다.
-- 설계 문서([../api-db-design.md](../api-db-design.md))는 research가 아니라 `docs/` 직속에 둔다 — research는 "조사·근거", `docs/`는 "결정·설계".
+- 설계·계획 문서([../plans/api-db-design.md](../plans/api-db-design.md))는 research가 아니라 `docs/plans/`에 둔다 — research는 "조사·근거", `plans/`는 "구현 계획·설계".
