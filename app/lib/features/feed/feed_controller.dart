@@ -111,6 +111,12 @@ class FeedController extends Notifier<FeedState> {
     }
   }
 
+  /// 상세 화면에서 좋아요가 바뀌었을 때 목록 상태만 동기화(API 재호출 없음).
+  void syncLike(String recordId, {required bool liked, required int likeCount}) {
+    if (state.posts.every((p) => p.recordId != recordId)) return;
+    _patch(recordId, liked: liked, likeCount: likeCount);
+  }
+
   /// 댓글 작성 후 카운트 +1(미리보기 갱신은 다음 새로고침에 반영).
   void bumpCommentCount(String recordId) {
     state = state.copyWith(

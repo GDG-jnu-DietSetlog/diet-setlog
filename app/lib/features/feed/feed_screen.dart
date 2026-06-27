@@ -168,6 +168,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               recordId: state.posts[i].recordId,
               onAdded: () => ctrl.bumpCommentCount(state.posts[i].recordId),
             ),
+            onOpen: () => context.push(Routes.feedDetail, extra: state.posts[i]),
           );
         },
       ),
@@ -177,10 +178,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
 class _FeedCard extends StatelessWidget {
   const _FeedCard(
-      {required this.post, required this.onLike, required this.onComment});
+      {required this.post,
+      required this.onLike,
+      required this.onComment,
+      required this.onOpen});
   final FeedPost post;
   final VoidCallback onLike;
   final VoidCallback onComment;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +202,7 @@ class _FeedCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _header(),
-          _photo(),
+          GestureDetector(onTap: onOpen, child: _photo()),
           Padding(
             padding: EdgeInsets.all(12.w),
             child: Column(
@@ -221,7 +226,10 @@ class _FeedCard extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: 12.h),
-                Text(post.title, style: AppType.bodyBold()),
+                GestureDetector(
+                  onTap: onOpen,
+                  child: Text(post.title, style: AppType.bodyBold()),
+                ),
                 if (post.memo != null && post.memo!.isNotEmpty) ...[
                   SizedBox(height: 4.h),
                   Text(post.memo!,
@@ -236,7 +244,7 @@ class _FeedCard extends StatelessWidget {
                 if (post.commentCount > post.previewComments.length) ...[
                   SizedBox(height: 4.h),
                   GestureDetector(
-                    onTap: onComment,
+                    onTap: onOpen,
                     child: Text('댓글 ${post.commentCount}개 모두 보기',
                         style: AppType.label(color: AppColors.textC7)),
                   ),
