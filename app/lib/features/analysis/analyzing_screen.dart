@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +42,8 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen> {
     try {
       final res = await runAnalysis(
         ref.read(analysisApiProvider),
-        filePath: widget.args.filePath,
+        bytes: widget.args.bytes,
+        filename: widget.args.filename,
         source: widget.args.source,
         onTick: (attempt, max) {
           if (mounted) {
@@ -55,7 +55,7 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen> {
       if (res.status == AnalysisStatus.completed) {
         context.pushReplacement(
           Routes.recordEdit,
-          extra: RecordEditArgs(analysis: res, localPath: widget.args.filePath),
+          extra: RecordEditArgs(analysis: res, imageBytes: widget.args.bytes),
         );
       } else {
         setState(() => _failed = res);
@@ -99,10 +99,9 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen> {
   }
 
   Widget _background() {
-    final f = File(widget.args.filePath);
     return ImageFiltered(
       imageFilter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-      child: Image.file(f,
+      child: Image.memory(widget.args.bytes,
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) =>
               const ColoredBox(color: AppColors.darkBg)),

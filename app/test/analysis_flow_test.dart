@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:dio/dio.dart';
 import 'package:diet_setlog/core/api/dio_client.dart';
@@ -17,7 +18,9 @@ class _FakeAnalysisApi extends AnalysisApi {
 
   @override
   Future<AnalysisResponse> upload(
-      {required String filePath, String? source}) async {
+      {required Uint8List bytes,
+      required String filename,
+      String? source}) async {
     return const AnalysisResponse(
       analysisId: 'a1',
       status: AnalysisStatus.processing,
@@ -55,7 +58,8 @@ void main() {
   test('runAnalysis polls until completed (upload→processing×2→completed)',
       () async {
     final api = _FakeAnalysisApi(2); // 2회 processing 후 completed
-    final res = await runAnalysis(api, filePath: '/tmp/x.jpg');
+    final res = await runAnalysis(api,
+        bytes: Uint8List.fromList([1, 2, 3]), filename: 'x.jpg');
     expect(res.status, AnalysisStatus.completed);
     expect(res.result?.dishName, '닭가슴살 샐러드');
   }, timeout: const Timeout(Duration(seconds: 30)));

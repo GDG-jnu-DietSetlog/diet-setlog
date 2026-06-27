@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../../core/api/dio_client.dart';
 import '../models/analysis.dart';
@@ -7,11 +8,14 @@ class AnalysisApi {
   final ApiClient _client;
 
   /// POST /v1/food-analyses (multipart, 필드명 `image`). 항상 202 processing.
+  /// 이미지는 바이트로 전송(web/모바일 공용).
   Future<AnalysisResponse> upload({
-    required String filePath,
+    required Uint8List bytes,
+    required String filename,
     String? source, // camera | gallery
   }) async {
-    final ext = filePath.split('.').last.toLowerCase();
+    final ext =
+        filename.contains('.') ? filename.split('.').last.toLowerCase() : 'jpg';
     final mime = switch (ext) {
       'png' => 'image/png',
       'webp' => 'image/webp',
@@ -19,8 +23,8 @@ class AnalysisApi {
     };
     final form = FormData.fromMap({
       if (source != null) 'source': source,
-      'image': await MultipartFile.fromFile(
-        filePath,
+      'image': MultipartFile.fromBytes(
+        bytes,
         filename: 'upload.$ext',
         contentType: DioMediaType.parse(mime),
       ),
