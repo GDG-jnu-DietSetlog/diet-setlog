@@ -8,6 +8,12 @@ abstract final class Env {
     defaultValue: 'http://localhost:3000/v1',
   );
 
+  /// 카카오 앱 키 — 빌드 시 주입(시크릿 미커밋).
+  /// `--dart-define=KAKAO_NATIVE_APP_KEY=...`(모바일), `--dart-define=KAKAO_JS_KEY=...`(웹).
+  /// 안드로이드 매니페스트의 `kakao{네이티브키}` 스킴은 gradle 속성으로 별도 주입(README 참고).
+  static const kakaoNativeAppKey = String.fromEnvironment('KAKAO_NATIVE_APP_KEY');
+  static const kakaoJsKey = String.fromEnvironment('KAKAO_JS_KEY');
+
   // 페이지네이션(spec-lock §7)
   static const int defaultLimit = 20;
   static const int maxLimit = 50;
