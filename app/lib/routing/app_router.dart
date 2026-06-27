@@ -2,18 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../design/widgets/placeholder_screen.dart';
+import '../features/session/bootstrap_screen.dart';
+import '../features/onboarding/onboarding_screen.dart';
 import 'root_shell.dart';
 import 'route_paths.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
-/// 앱 라우터. Wave 1 은 골격(홈/캘린더 셸 + 임시 화면).
-/// 부트스트랩 리다이렉트와 실제 화면은 후속 wave 에서 연결한다.
+/// 앱 라우터. '/' 부트스트랩에서 세션·프로필 확인 후 홈/온보딩 분기.
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootKey,
-    initialLocation: Routes.home,
+    initialLocation: Routes.bootstrap,
     routes: [
+      GoRoute(
+        path: Routes.bootstrap,
+        builder: (c, s) => const BootstrapScreen(),
+      ),
+      GoRoute(
+        path: Routes.onboarding,
+        builder: (c, s) => const OnboardingScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => RootShell(shell: shell),
         branches: [
@@ -30,10 +39,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ),
           ]),
         ],
-      ),
-      GoRoute(
-        path: Routes.onboarding,
-        builder: (c, s) => const PlaceholderScreen('온보딩'),
       ),
       GoRoute(
         path: Routes.friendSearch,
