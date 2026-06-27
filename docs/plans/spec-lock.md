@@ -380,9 +380,9 @@ Do not include any text outside the JSON.
   | `prisma` / `@prisma/client` | ^5.18 | ORM/마이그레이션 |
   | `zod` | ^3.23 | 입력 검증 |
   | `jsonwebtoken` | ^9.0.2 | JWT 서명/검증 |
-  | `bullmq` + `ioredis` | ^5.8 / ^5.4 | 분석 비동기 큐 |
+  | `bullmq` (+ `ioredis`) | ^5.12 | 분석 비동기 큐. ⚠️ 연결은 **인스턴스 말고 옵션 객체**로(번들 ioredis 타입충돌 회피, §13.5-13) |
   | `rate-limit-redis` + `express-rate-limit` | ^4.2 / ^7.4 | 레이트리밋 |
-  | `@aws-sdk/client-s3` | ^3.6xx | S3 호환 업로드 |
+  | `@google-cloud/storage` | ^7.12 | **GCS 업로드**(스토리지 = GCP, 로컬은 fake-gcs-server 에뮬레이터) |
   | `multer` | ^1.4.5-lts.1 | multipart |
   | `@google/generative-ai` | ^0.21 | Gemini |
   | `vitest` | ^2.0 | 테스트(단일 채택, "또는 npm test" 모호성 제거) |
@@ -430,6 +430,15 @@ Figma는 읽기 전용이라 아래는 **문서·구현 합의로 확정**하되
 10. **CRLF 줄바꿈이 컨테이너 셸을 깨뜨림** — Windows 호스트에서 `git`이 `docker-entrypoint.sh`를 CRLF로 체크아웃하면 컨테이너 bash가 `$'\r'`로 깨짐. → **확정: 루트 `.gitattributes`로 `*.sh`·Dockerfile 등 LF 고정 + Dockerfile에서 `sed`로 CR 제거(2중 방어).**
 
 > 파일럿+records 도메인을 실제로 빌드·실행하지 않았으면 8·9·10은 전부 런타임에서야 터졌을 구멍 — 특히 9는 명백한 500 버그였다.
+
+**analyses 인프라 wave(#20)에서 추가 발견·결정:**
+
+11. **스토리지 = GCS (S3 아님)** — 설계의 "S3 호환 스토리지"를 **Google Cloud Storage로 확정**(앱이 Gemini=구글이라 생태계 일관). SDK `@google-cloud/storage`, 로컬은 `fake-gcs-server` 에뮬레이터. env: `GCS_BUCKET`·`GCS_PROJECT_ID`·`GCS_API_ENDPOINT`(에뮬레이터)·`GCS_PUBLIC_URL`. 실제 배포는 서비스계정(`GOOGLE_APPLICATION_CREDENTIALS`). api-db-design §7의 `S3_*`는 `GCS_*`로 대체.
+12. **`FoodAnalysis`에 이미지 MIME 미저장** — 워커가 Gemini 호출 시 contentType이 필요한데 스키마에 없음. → **확정: `imageKey` 확장자에서 MIME 유도**(jpg/png/webp). (재업로드/재처리에 충분)
+13. **BullMQ ↔ ioredis 번들 충돌** — bullmq가 자체 ioredis를 번들해 top-level ioredis 인스턴스를 `connection`에 넘기면 타입 불일치. → **확정: 연결은 인스턴스 말고 `{ host, port }` 옵션 객체**로 넘겨 BullMQ가 내부 생성하게 한다. (`lib/redis.ts`)
+14. **Gemini 키 없이도 전 구조 검증** — 워커·큐·GCS·폴링은 키와 무관. → **목(mock) Gemini로 골격 완성**(`usingMockGemini`), 키 주입 시 동일 코드로 live 전환(프롬프트는 §9 원문).
+
+> 분석 wave를 목으로라도 실제 실행했기에 11~14가 드러났다. 스토리지 제공자(11)는 코드 한 줄이 아니라 SDK·compose·env 전반을 바꾸는 결정 — 늦게 발견했으면 비쌌다.
 
 ---
 

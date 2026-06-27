@@ -1,5 +1,5 @@
-# 백엔드 전체를 docker로. `docker compose up --build` 하나로 DB + 서버 기동(마이그레이션 자동).
-# 파일럿은 Postgres + server. Redis/MinIO 는 후속 wave에서 같은 파일에 추가.
+# 백엔드 전체를 docker로. `docker compose up --build` 하나로 DB+Redis+GCS에뮬+서버 기동.
+# analyses wave: Redis(큐) + fake-gcs-server(GCS 에뮬레이터) 추가.
 services:
   postgres:
     image: postgres:16-alpine
@@ -17,19 +17,45 @@ services:
       timeout: 3s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # GCS 에뮬레이터(로컬). 실제 배포는 진짜 GCS + 서비스계정.
+  gcs:
+    image: fsouza/fake-gcs-server:1.49
+    command: ["-scheme", "http", "-port", "4443", "-public-host", "localhost:4443"]
+    ports:
+      - "4443:4443"
+
   server:
     build: .
     environment:
-      # 컨테이너 간 통신: DB 호스트 = 서비스명 postgres
       DATABASE_URL: "postgresql://dietsetlog:dietsetlog@postgres:5432/dietsetlog?schema=public"
       JWT_SECRET: "dev-only-change-me"
       PORT: "3000"
       APP_TZ: "Asia/Seoul"
+      REDIS_URL: "redis://redis:6379"
+      GCS_PROJECT_ID: "dietsetlog-local"
+      GCS_BUCKET: "dietsetlog"
+      GCS_API_ENDPOINT: "http://gcs:4443"
+      GCS_PUBLIC_URL: "http://localhost:4443"
+      # GEMINI_API_KEY 미설정 → 목 분석. 실제 키 주입 시 live.
     ports:
       - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      gcs:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
