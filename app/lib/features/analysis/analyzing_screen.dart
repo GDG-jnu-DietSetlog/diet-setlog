@@ -46,8 +46,9 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen> {
         filePath: widget.args.filePath,
         source: widget.args.source,
         onTick: (attempt, max) {
-          if (mounted)
+          if (mounted) {
             setState(() => _progress = (attempt / max).clamp(0.05, 0.95));
+          }
         },
       );
       if (!mounted) return;
