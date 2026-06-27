@@ -18,10 +18,14 @@ class BootstrapScreen extends ConsumerWidget {
     final boot = ref.watch(bootstrapProvider);
 
     ref.listen(bootstrapProvider, (prev, next) {
-      next.whenOrNull(data: (hasProfile) {
+      next.whenOrNull(data: (dest) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!context.mounted) return;
-          context.go(hasProfile ? Routes.home : Routes.onboarding);
+          context.go(switch (dest) {
+            BootDestination.home => Routes.home,
+            BootDestination.onboarding => Routes.onboarding,
+            BootDestination.login => Routes.login,
+          });
         });
       });
     });
@@ -66,7 +70,7 @@ class _Loading extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('diet-setlog', style: AppType.title(color: AppColors.primary)),
+        Text('오늘냠', style: AppType.display(color: AppColors.primary)),
         SizedBox(height: 24.h),
         const CircularProgressIndicator(
           valueColor: AlwaysStoppedAnimation(AppColors.primary),

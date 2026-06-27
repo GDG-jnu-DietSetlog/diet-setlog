@@ -19,6 +19,8 @@ dependencies:
   dio: ^5.4.0
   # 토큰 저장(secure)
   flutter_secure_storage: ^9.2.0
+  # 카카오 로그인(SDK) — 온보딩2. 네이티브/JS 키는 빌드 시 --dart-define 으로 주입.
+  kakao_flutter_sdk_user: ^1.9.0
   # 카메라/갤러리
   image_picker: ^1.1.0
   # 이미지 캐시
@@ -48,6 +50,7 @@ flutter:
 
   assets:
     - assets/fonts/
+    - assets/images/
 
   fonts:
     - family: Pretendard

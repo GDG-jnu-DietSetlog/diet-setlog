@@ -13,4 +13,14 @@ class SessionApi {
         ));
     return GuestSession.fromJson(data as Map<String, dynamic>);
   }
+
+  /// POST /v1/sessions/kakao. 카카오 SDK accessToken → 세션 토큰.
+  /// 현재 게스트 Bearer 가 있으면 인터셉터가 함께 보내 게스트→카카오 승격된다.
+  Future<GuestSession> loginWithKakao(String accessToken) async {
+    final data = await _client.send((dio) => dio.post(
+          '/sessions/kakao',
+          data: {'accessToken': accessToken},
+        ));
+    return GuestSession.fromJson(data as Map<String, dynamic>);
+  }
 }

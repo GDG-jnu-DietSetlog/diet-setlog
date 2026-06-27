@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/session/bootstrap_screen.dart';
+import '../features/auth/login_screen.dart';
+import '../features/auth/legal_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/friends/friend_search_screen.dart';
@@ -29,6 +31,20 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.bootstrap,
         builder: (c, s) => const BootstrapScreen(),
+      ),
+      GoRoute(
+        path: Routes.login,
+        builder: (c, s) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: Routes.terms,
+        builder: (c, s) =>
+            const LegalScreen(title: '서비스 이용약관', sections: kTermsSections),
+      ),
+      GoRoute(
+        path: Routes.privacy,
+        builder: (c, s) =>
+            const LegalScreen(title: '개인정보 처리방침', sections: kPrivacySections),
       ),
       GoRoute(
         path: Routes.onboarding,

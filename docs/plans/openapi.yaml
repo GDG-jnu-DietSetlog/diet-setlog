@@ -56,6 +56,39 @@ paths:
                   isNewUser:    { type: boolean }
         '429': { $ref: '#/components/responses/RateLimited' }
 
+  /sessions/kakao:
+    post:
+      tags: [session]
+      summary: 카카오 로그인(SDK accessToken → 세션 토큰). api-db-design §1.5.
+      description: >
+        앱이 카카오 SDK 로그인으로 받은 accessToken 을 전달한다. 서버가 카카오로 검증해
+        AuthIdentity(provider=kakao) 를 upsert 하고 세션 토큰을 발급한다.
+        게스트 Bearer 가 함께 오면 게스트→카카오 승격(userId 유지). 신규=201, 기존 로그인=200.
+      security: []   # authGuard 예외. 단, 게스트 승격을 위해 선택적으로 Bearer 를 읽는다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accessToken]
+              properties:
+                accessToken: { type: string, description: 카카오 SDK accessToken }
+      responses:
+        '200':
+          description: 기존 카카오 계정 로그인
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '201':
+          description: 신규 가입 또는 게스트 승격
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSession' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
   /me/profile:
     get:
       tags: [profile]
@@ -369,6 +402,13 @@ components:
         application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } }
 
   schemas:
+    AuthSession:
+      type: object
+      required: [userId, sessionToken, isNewUser]
+      properties:
+        userId:       { type: string, format: uuid }
+        sessionToken: { type: string, description: HS256 JWT, 365일 }
+        isNewUser:    { type: boolean }
     MealType:
       type: string
       enum: [breakfast, lunch, dinner, snack]
