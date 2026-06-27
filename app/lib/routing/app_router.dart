@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../design/widgets/placeholder_screen.dart';
 import '../features/session/bootstrap_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
+import '../features/home/home_screen.dart';
+import '../features/friends/friend_search_screen.dart';
 import 'root_shell.dart';
 import 'route_paths.dart';
 
@@ -29,7 +31,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: Routes.home,
-              builder: (c, s) => const PlaceholderScreen('홈'),
+              builder: (c, s) => const HomeScreen(),
             ),
           ]),
           StatefulShellBranch(routes: [
@@ -42,7 +44,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.friendSearch,
-        builder: (c, s) => const PlaceholderScreen('친구 검색'),
+        builder: (c, s) => const FriendSearchScreen(),
       ),
       GoRoute(
         path: Routes.capture,
