@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../design/widgets/placeholder_screen.dart';
 import '../features/session/bootstrap_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/friends/friend_search_screen.dart';
+import '../features/calendar/calendar_screen.dart';
+import '../features/calendar/daily_summary_screen.dart';
 import '../features/analysis/analysis_flow.dart';
 import '../features/analysis/capture_screen.dart';
 import '../features/analysis/analyzing_screen.dart';
 import '../features/record/record_args.dart';
 import '../features/record/record_edit_screen.dart';
 import '../features/record/record_complete_screen.dart';
+import '../features/feed/feed_screen.dart';
 import '../data/models/record_create.dart';
 import 'root_shell.dart';
 import 'route_paths.dart';
@@ -44,7 +46,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
               path: Routes.calendar,
-              builder: (c, s) => const PlaceholderScreen('캘린더'),
+              builder: (c, s) => const CalendarScreen(),
             ),
           ]),
         ],
@@ -52,6 +54,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.friendSearch,
         builder: (c, s) => const FriendSearchScreen(),
+      ),
+      GoRoute(
+        path: Routes.dailySummary,
+        builder: (c, s) => DailySummaryScreen(date: s.extra as DateTime),
       ),
       GoRoute(
         path: Routes.capture,
@@ -72,7 +78,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.feed,
-        builder: (c, s) => const PlaceholderScreen('피드'),
+        builder: (c, s) => const FeedScreen(),
       ),
     ],
   );
