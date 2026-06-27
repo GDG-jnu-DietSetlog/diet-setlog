@@ -16,6 +16,8 @@ import '../features/record/record_args.dart';
 import '../features/record/record_edit_screen.dart';
 import '../features/record/record_complete_screen.dart';
 import '../features/feed/feed_screen.dart';
+import '../features/feed/feed_detail_screen.dart';
+import '../data/models/feed.dart';
 import '../data/models/record_create.dart';
 import 'root_shell.dart';
 import 'route_paths.dart';
@@ -95,6 +97,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.feed,
         builder: (c, s) => const FeedScreen(),
+      ),
+      GoRoute(
+        path: Routes.feedDetail,
+        builder: (c, s) => FeedDetailScreen(post: s.extra as FeedPost),
       ),
     ],
   );
