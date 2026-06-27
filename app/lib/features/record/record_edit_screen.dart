@@ -16,7 +16,9 @@ import '../../design/widgets/calorie_chip.dart';
 import '../../design/widgets/nutrition.dart';
 import '../../design/widgets/primary_button.dart';
 import '../../design/widgets/app_top_bar.dart';
+import '../../core/date_utils.dart';
 import '../../routing/route_paths.dart';
+import '../calendar/calendar_providers.dart';
 import '../home/home_providers.dart';
 import 'record_args.dart';
 
@@ -106,6 +108,7 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
     try {
       final res = await ref.read(recordsApiProvider).create(req);
       ref.invalidate(homeProvider); // 홈 요약 갱신
+      ref.invalidate(dailySummaryProvider(ymd(DateTime.now()))); // 캘린더 오늘 갱신
       if (!mounted) return;
       context.pushReplacement(Routes.uploadComplete, extra: res);
     } on ApiException catch (e) {
