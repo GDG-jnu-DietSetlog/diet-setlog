@@ -30,11 +30,13 @@ class _CaptureScreenState extends ConsumerState<CaptureScreen> {
         maxWidth: 1600,
       );
       if (file == null) return;
+      final bytes = await file.readAsBytes();
       if (!mounted) return;
       context.pushReplacement(
         Routes.analyzing,
         extra: AnalyzeArgs(
-          filePath: file.path,
+          bytes: bytes,
+          filename: file.name,
           source: source == ImageSource.camera ? 'camera' : 'gallery',
         ),
       );

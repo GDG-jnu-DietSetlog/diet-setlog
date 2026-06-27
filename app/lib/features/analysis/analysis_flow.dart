@@ -1,13 +1,16 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import '../../core/env.dart';
 import '../../data/api/analysis_api.dart';
 import '../../data/models/analysis.dart';
 import '../../data/models/enums.dart';
 
 /// Analyzing 화면 → RecordEdit 로 넘기는 인자.
+/// 이미지는 바이트로 전달(web/모바일 공용 — dart:io 미사용).
 class AnalyzeArgs {
-  const AnalyzeArgs({required this.filePath, this.source});
-  final String filePath; // 로컬 이미지(미리보기용)
+  const AnalyzeArgs({required this.bytes, required this.filename, this.source});
+  final Uint8List bytes; // 로컬 이미지(미리보기 + 업로드)
+  final String filename;
   final String? source; // camera | gallery
 }
 
@@ -19,11 +22,13 @@ typedef PollTick = void Function(int attempt, int maxAttempts);
 /// completed/failed 응답을 반환하고, 소진 시 MODEL_TIMEOUT 으로 합성한다.
 Future<AnalysisResponse> runAnalysis(
   AnalysisApi api, {
-  required String filePath,
+  required Uint8List bytes,
+  required String filename,
   String? source,
   PollTick? onTick,
 }) async {
-  final started = await api.upload(filePath: filePath, source: source);
+  final started =
+      await api.upload(bytes: bytes, filename: filename, source: source);
 
   var intervalMs = Env.pollInitialInterval.inMilliseconds;
   for (var i = 0; i < Env.pollMaxAttempts; i++) {

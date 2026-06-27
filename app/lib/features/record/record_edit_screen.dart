@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -191,10 +190,10 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
   }
 
   Widget _image() {
-    final path = widget.args.localPath;
+    final bytes = widget.args.imageBytes;
     final url = widget.args.analysis.imageUrl;
-    final img = path != null
-        ? Image.file(File(path),
+    final img = bytes != null
+        ? Image.memory(bytes,
             height: 186.h,
             width: double.infinity,
             fit: BoxFit.cover,

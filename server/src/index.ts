@@ -16,6 +16,19 @@ import { errorHandler } from './middleware/errorHandler.js';
 const app = express();
 app.use(express.json());
 
+// CORS — Flutter web 클라이언트가 다른 오리진에서 API 를 호출할 수 있게 허용.
+// 요청 Origin 을 반영(쿠키 미사용). 운영 시 허용 오리진 화이트리스트로 좁힐 수 있음.
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 // 헬스체크
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
