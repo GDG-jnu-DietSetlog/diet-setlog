@@ -1,0 +1,13 @@
+/// 라우트 경로 상수.
+abstract final class Routes {
+  static const bootstrap = '/';
+  static const onboarding = '/onboarding';
+  static const home = '/home';
+  static const calendar = '/calendar';
+  static const feed = '/feed';
+  static const friendSearch = '/friends/search';
+  static const capture = '/capture';
+  static const analyzing = '/analyzing';
+  static const recordEdit = '/record/edit';
+  static const uploadComplete = '/record/complete';
+}
