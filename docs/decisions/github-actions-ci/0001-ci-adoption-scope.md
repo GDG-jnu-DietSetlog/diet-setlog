@@ -1,7 +1,7 @@
 # 0001. GitHub Actions CI 도입 범위 — 스캐폴딩 단계별 활성화
 
-- **상태**: ✅ 확정 (검사 항목은 코드가 생기는 시점에 단계적 활성화)
-- **날짜**: 2026-06-26
+- **상태**: ✅ 확정 · 묶음 1·2·3 **전부 활성화 완료** (2026-06-28, app·server 스캐폴딩됨)
+- **날짜**: 2026-06-26 (활성화: 2026-06-28)
 - **관련**: [리서치](../../research/github-actions-ci/README.md) (문서 01~04) · [README](./README.md) · [CONTRIBUTING.md](../../../CONTRIBUTING.md) · [CLAUDE.md](../../../CLAUDE.md)
 
 ## 맥락 (Context)
@@ -62,11 +62,13 @@
 
 ### 묶음 2 — `server/` 스캐폴딩 시 활성화
 
-`server/package.json` 이 생기는 PR에서 함께 켠다.
+`server/package.json` 이 생기는 PR에서 함께 켠다. **(2026-06-28 활성화)**
 
-- `npm ci`(락파일 동기화) → `npm run lint`(eslint) → `npx prettier --check .` → `npx tsc --noEmit` → `npm test`
+- `npm ci`(락파일 동기화) → `npm run prisma:generate`(타입) → `npm run lint`(eslint) → `npm run typecheck`(`tsc --noEmit`) → `npm test`(vitest)
 - Dependabot `npm`(`/server`) 추가
-- CodeQL(`javascript-typescript`)
+- **eslint 셋업**: 활성화 시점에 eslint 설정·의존성이 없어 flat config(`eslint.config.js`, `@eslint/js` + `typescript-eslint`)와 devDeps를 추가했다. 발견된 실제 위반 1건(`prefer-const`)은 함께 수정.
+- **prettier `--check`는 보류**: prettier 미설치 상태였고, 전체 코드베이스 일괄 재포맷 churn을 피하기 위해 1차에선 eslint만 적용. 포맷 강제는 추후 도입(재검토 트리거에 추가).
+- CodeQL(`javascript-typescript`)은 후속(이 PR엔 미포함).
 - zod 입력 검증은 코드 규약이므로 CI 항목 아님(리뷰에서 확인)
 
 ### 묶음 3 — `app/` 스캐폴딩 시 활성화
@@ -76,6 +78,7 @@
 - `dart format --output=none --set-exit-if-changed .` → `flutter analyze --fatal-infos` → `flutter test`
 - (릴리스 임박 시) `flutter build apk`
 - Dependabot `pub`(`/app`) 추가
+- **(2026-06-28 활성화)** Flutter 3.24.5 고정. 활성화 시 미포맷 1건(`record_edit_screen.dart`) 발견·수정.
 
 ### 공통 운영 규칙 (묶음 2·3이 켜질 때 함께)
 
@@ -103,18 +106,24 @@
 
 ## 영향 (Consequences)
 
-**지금 생기는 작업 (묶음 1)**
-- [ ] **비코드 검사 통합**: `commitlint.yml` + `pr-title.yml` 삭제 → `.github/workflows/docs-and-conventions.yml` 1개로 통합(하위 잡 `pr-title`/`commitlint`/`docs-links`)
-- [ ] 저장소 설정: **Secret scanning + Push protection 활성화** (Settings → Code security)
-- [ ] `.github/dependabot.yml` 추가 — `github-actions` 생태계(weekly)
-- [ ] `docs/decisions/github-actions-ci/README.md` "현재 결정"을 이 ADR 요지로 갱신
+**묶음 1 (완료)**
+- [x] **비코드 검사 통합**: `commitlint.yml` + `pr-title.yml` 삭제 → `.github/workflows/docs-and-conventions.yml` 1개로 통합(하위 잡 `pr-title`/`commitlint`/`docs-links`)
+- [ ] 저장소 설정: **Secret scanning + Push protection 활성화** (Settings → Code security) — *저장소 관리자 수동 작업, 코드 변경 아님*
+- [x] `.github/dependabot.yml` 추가 — `github-actions`(+ 묶음 2·3로 `npm`/`pub` 함께)
+- [x] `docs/decisions/github-actions-ci/README.md` "현재 결정"을 이 ADR 요지로 갱신
 
-**나중에 생기는 작업 (묶음 2·3)**
-- `server/`·`app/` 스캐폴딩 PR의 **정의에 CI 워크플로 추가를 포함**(체크리스트화).
-- 두 묶음이 켜지면 **paths-filter + 집계 status gate** 구성, 통과 잡들을 브랜치 보호의 required status checks로 등록.
+**묶음 2·3 (2026-06-28 활성화 — app·server 스캐폴딩 + 테스트 존재 확인)**
+- [x] `.github/workflows/ci.yml` 추가 — `changes`(paths-filter) → `server`/`app` 잡 → 집계 `ci-gate`.
+- [x] server eslint flat config + devDeps 추가, `prefer-const` 위반 1건 수정.
+- [x] app 미포맷 1건 수정. 로컬 검증: server lint·tsc·test(23) / app format·analyze·test(17) 모두 통과.
+- [ ] **브랜치 보호**: required status checks에 **`CI Gate`만** 등록(스킵-잡 직접 등록 금지) — *저장소 관리자 수동 작업*.
+
+**정제 — 코드 검사는 "대상별 워크플로" 대신 단일 `ci.yml` 내 잡 분리**
+- 당초 "코드=대상별 워크플로 분리"였으나, GitHub Actions는 **워크플로를 가로질러 한 잡이 다른 워크플로 잡을 `needs`로 집계할 수 없다.** 묶음 2·3 요구사항인 "**항상 도는 집계 status gate 1개만 required**"를 만족하려면 server·app 잡과 게이트가 한 워크플로 안에 있어야 한다.
+- 따라서 코드 검사는 `ci.yml` **단일 워크플로 안에서 `server`/`app` 잡으로 분리**한다(비코드 `docs-and-conventions.yml` 과는 여전히 분리). 원래 의도("언어·툴체인·트리거가 다르므로 분리")는 잡 수준 분리 + `paths-filter`로 충족.
 
 **트레이드오프**
-- 검사가 한 번에 다 켜지지 않아 "CI가 약해 보이는" 구간이 있으나, 코드가 없으므로 실제 리스크는 시크릿·문서 링크뿐이고 그건 묶음 1이 덮는다.
+- prettier 포맷 게이트는 1차 보류(eslint만) → 포맷 일관성은 추후 도입 시 강제.
 
 ## 재검토 트리거 (Revisit when)
 
@@ -131,3 +140,4 @@
 |------|------|------|
 | 2026-06 | 빈 자리 생성(결정 없음) | 🟡 검토 중 |
 | 2026-06-26 | 도입 범위 확정 — 스캐폴딩 단계별 활성화(묶음 1 지금/2·3 코드 생길 때) | ✅ 확정 |
+| 2026-06-28 | app·server 스캐폴딩으로 재검토 트리거 발동 → **묶음 2·3 활성화**: `ci.yml`(paths-filter + `ci-gate`)·dependabot(npm/pub) 추가, eslint 셋업. 정제: 코드 검사 단일 워크플로 잡 분리, prettier 보류 | ✅ 적용 |

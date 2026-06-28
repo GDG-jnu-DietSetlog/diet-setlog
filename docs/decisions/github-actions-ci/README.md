@@ -1,7 +1,7 @@
 # GitHub Actions CI 도입 — 결정
 
-- **현재 상태**: ✅ 확정 (검사 항목은 코드 스캐폴딩 시점에 단계적 활성화)
-- **최종 갱신**: 2026-06-26
+- **현재 상태**: ✅ 확정 · 묶음 1·2·3 **전부 활성화 완료** (2026-06-28)
+- **최종 갱신**: 2026-06-28
 - **관련**: [리서치](../../research/github-actions-ci/README.md) · [설계](../../plans/api-db-design.md) · [CLAUDE.md](../../../CLAUDE.md)
 - **상위 카탈로그**: [../README.md](../README.md)
 
@@ -22,9 +22,9 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 
 - **묶음 1 — 지금**: 커밋/PR 컨벤션(적용됨) · Secret scanning + push protection · Dependabot(github-actions) · 문서 링크 체크. 
   비코드(문서·제목·컨벤션) 검사는 **워크플로 1개(`docs-and-conventions.yml`) 아래 하위 잡**으로 통합.
-- **묶음 2 — `server/` 스캐폴딩 시**: eslint·prettier·`tsc --noEmit`·test·CodeQL·Dependabot(npm).
-- **묶음 3 — `app/` 스캐폴딩 시**: `dart format`·`flutter analyze`·`flutter test`·Dependabot(pub).
-- 두 묶음 가동 시 **paths-filter + 집계 status gate**(스킵-잡 required 함정 회피).
+- **묶음 2 — `server/` (✅ 2026-06-28 활성화)**: eslint·`tsc --noEmit`·test·Dependabot(npm). prettier·CodeQL은 보류/후속.
+- **묶음 3 — `app/` (✅ 2026-06-28 활성화)**: `dart format`·`flutter analyze`·`flutter test`·Dependabot(pub).
+- 코드 검사는 단일 `ci.yml`(`server`/`app` 잡 분리) + **paths-filter + 집계 status gate `CI Gate`**(스킵-잡 required 함정 회피). 브랜치 보호에는 `CI Gate`만 required 등록.
 - **보류**: 커버리지 게이트(테스트 없음)·릴리스 자동화·라벨러/stale·DCO/CLA.
 
 ## 열린 질문 (정할 것)
@@ -32,8 +32,10 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 - [x] 1차 도입 범위 → 묶음 1만 지금, 코드 검사는 스캐폴딩 트리거 ([0001](0001-ci-adoption-scope.md))
 - [x] 커밋 검사 방식 → PR 제목(semantic) + 모든 커밋 commitlint, 비코드 검사로 통합
 - [x] 보안 스캔 범위(1차) → secret scanning + push protection + Dependabot(actions); CodeQL은 server 생길 때
-- [ ] 테스트/커버리지 게이트 강도 (테스트 생긴 뒤)
-- [ ] 모노레포 paths-filter + required status check 세부 구성 (app·server 둘 다 생길 때)
+- [x] 모노레포 paths-filter + required status check 세부 구성 → `ci.yml` + `CI Gate` ([0001](0001-ci-adoption-scope.md))
+- [ ] 테스트/커버리지 게이트 강도 (테스트 존재 — 커버리지 게이트 재검토 가능)
+- [ ] prettier 포맷 게이트 도입 여부·시점
+- [ ] CodeQL(`javascript-typescript`) 도입
 - [ ] 릴리스 자동화 도입 여부·시점
 
 ## 근거 (Rationale)
@@ -56,3 +58,4 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 |------|------|------|
 | 2026-06 | 빈 자리 생성(결정 없음) | 🟡 검토 중 |
 | 2026-06-26 | 도입 범위 확정([0001](0001-ci-adoption-scope.md)) — 단계별 활성화, 비코드 검사 워크플로 통합 | ✅ 확정 |
+| 2026-06-28 | 묶음 2·3 활성화 — `ci.yml`·dependabot(npm/pub)·eslint 셋업 ([0001](0001-ci-adoption-scope.md)) | ✅ 적용 |

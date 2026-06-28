@@ -1,0 +1,25 @@
+# Dependabot (ADR 0001).
+# - github-actions: 묶음 1 (지금)
+# - npm(/server)·pub(/app): 묶음 2·3 — 스캐폴딩 완료로 함께 활성화
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: pub
+    directory: /app
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
