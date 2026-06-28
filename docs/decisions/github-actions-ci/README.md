@@ -25,7 +25,8 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 - **묶음 2 — `server/`(2026-06-28 활성화)**: eslint·prettier(`--check`)·`tsc --noEmit`·test(vitest) + Dependabot(npm). CodeQL은 보류.
 - **묶음 3 — `app/`(2026-06-28 활성화)**: `dart format --set-exit-if-changed`·`flutter analyze --fatal-infos`·`flutter test` + Dependabot(pub).
 - 두 묶음은 **단일 `ci.yml` 내 잡 분리 + paths-filter + 집계 `CI 게이트`** 1개만 required(스킵-잡 함정 회피).
-- **보류**: 커버리지 게이트(테스트 baseline 미성숙)·CodeQL·릴리스 자동화·라벨러/stale·DCO/CLA.
+- **커버리지 게이트(2026-06-28)**: 전체(project) 라인 커버리지 하락 차단 — vitest `thresholds`(server) + `very_good_coverage`(app), floor는 도입 시점 실측. 외부 서비스 없음.
+- **보류**: Codecov patch(변경 라인) 커버리지·CodeQL·릴리스 자동화·라벨러/stale·DCO/CLA.
 
 ## 열린 질문 (정할 것)
 
@@ -57,3 +58,4 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 | 2026-06 | 빈 자리 생성(결정 없음) | 🟡 검토 중 |
 | 2026-06-26 | 도입 범위 확정([0001](0001-ci-adoption-scope.md)) — 단계별 활성화, 비코드 검사 워크플로 통합 | ✅ 확정 |
 | 2026-06-28 | 묶음 2·3 활성화 — `ci.yml`(changes→app/server→gate) + eslint/prettier + Dependabot(npm/pub) | ✅ 가동 |
+| 2026-06-28 | 커버리지 게이트(전체 하락 차단) 도입 — vitest thresholds + very_good_coverage, 자체 임계값 floor | ✅ 가동 |
