@@ -1,7 +1,7 @@
 # 0001. GitHub Actions CI 도입 범위 — 스캐폴딩 단계별 활성화
 
-- **상태**: ✅ 확정 (검사 항목은 코드가 생기는 시점에 단계적 활성화)
-- **날짜**: 2026-06-26
+- **상태**: ✅ 확정 · 묶음 1·2·3 **전부 활성화**(2026-06-28, app·server 스캐폴딩 완료)
+- **날짜**: 2026-06-26 (활성화: 2026-06-28)
 - **관련**: [리서치](../../research/github-actions-ci/README.md) (문서 01~04) · [README](./README.md) · [CONTRIBUTING.md](../../../CONTRIBUTING.md) · [CLAUDE.md](../../../CLAUDE.md)
 
 ## 맥락 (Context)
@@ -57,24 +57,27 @@
 ```
 
 - **이유**: 이들은 모두 "비코드 규약" 한 묶음이라 개념적으로 1개 검사다. 워크플로를 쪼개면 PR 체크 목록만 길어지고 관리 지점이 흩어진다. 하위 잡은 GitHub 체크 UI에서 **하나의 워크플로 아래 개별 체크**로 표시돼 어디서 실패했는지도 명확하다.
-- **반대로 코드 검사(묶음 2·3)는 이 워크플로에 넣지 않는다.** 언어·툴체인·트리거(paths-filter)가 다르고 무거우므로 `app`/`server`별 워크플로로 분리한다. → "비코드=1워크플로 다잡", "코드=대상별 워크플로".
+- **반대로 코드 검사(묶음 2·3)는 이 워크플로에 넣지 않는다.** 언어·툴체인·트리거(paths-filter)가 다르고 무겁다. 단 **별도 워크플로 파일로 쪼개지 않고 단일 `ci.yml` 안의 `app`/`server` 잡으로 분리**한다 — GitHub `needs:`는 동일 워크플로 내 잡만 참조 가능해, 집계 `CI 게이트` 잡(아래 §공통 운영 규칙)이 두 잡을 묶으려면 한 파일이어야 하기 때문(2026-06-28 정정). → "비코드=1워크플로 다잡", "코드=`ci.yml` 1워크플로 내 잡 분리".
 - 기존 `commitlint.yml` + `pr-title.yml` 2개 워크플로는 **이 통합 워크플로로 대체**(아래 [영향](#영향-consequences)).
 
-### 묶음 2 — `server/` 스캐폴딩 시 활성화
+### 묶음 2 — `server/` (2026-06-28 활성화됨)
 
-`server/package.json` 이 생기는 PR에서 함께 켠다.
+`ci.yml`의 `server` 잡(paths-filter `server/**`):
 
-- `npm ci`(락파일 동기화) → `npm run lint`(eslint) → `npx prettier --check .` → `npx tsc --noEmit` → `npm test`
+- `npm ci`(락파일 동기화) → **`npm run prisma:generate`**(@prisma/client 타입 생성, typecheck 전 필수) → `npm run lint`(eslint) → `npx prettier --check .` → `npm run typecheck`(`tsc --noEmit`) → `npm test`(vitest)
+- **eslint 셋업**: 활성화 시점에 eslint 설정·의존성이 없어 flat config(`eslint.config.js`, `@eslint/js` + `typescript-eslint`)와 devDeps를 추가했다. 점진 도입으로 `no-explicit-any`/`no-unused-vars`는 warn, `prefer-const`는 error. 발견된 실제 위반 1건(`prefer-const`, `home.routes.ts`)은 함께 수정.
+- **prettier 도입**: server 전체에 `prettier --write` 1회로 일괄 포맷(churn 격리) 후 `--check` 게이트. (보류 안 함 — 팀 결정으로 포함.)
 - Dependabot `npm`(`/server`) 추가
-- CodeQL(`javascript-typescript`)
+- **CodeQL은 보류**(코드량·노출 표면 작음). 보안 마일스톤 시 별도 `codeql.yml`로 추가, gate에는 미포함.
 - zod 입력 검증은 코드 규약이므로 CI 항목 아님(리뷰에서 확인)
 
-### 묶음 3 — `app/` 스캐폴딩 시 활성화
+### 묶음 3 — `app/` (2026-06-28 활성화됨)
 
-`app/pubspec.yaml` 이 생기는 PR에서 함께 켠다.
+`ci.yml`의 `app` 잡(paths-filter `app/**`, `subosito/flutter-action` Flutter 3.24.5 고정):
 
-- `dart format --output=none --set-exit-if-changed .` → `flutter analyze --fatal-infos` → `flutter test`
-- (릴리스 임박 시) `flutter build apk`
+- `flutter pub get` → `dart format --output=none --set-exit-if-changed .` → `flutter analyze --fatal-infos` → `flutter test`
+- 활성화 시 미포맷 1건(`record_edit_screen.dart`)을 해당 기능 PR(#44)에서 함께 수정.
+- (릴리스 임박 시) `flutter build apk` — 보류
 - Dependabot `pub`(`/app`) 추가
 
 ### 공통 운영 규칙 (묶음 2·3이 켜질 때 함께)
@@ -109,18 +112,21 @@
 - [ ] `.github/dependabot.yml` 추가 — `github-actions` 생태계(weekly)
 - [ ] `docs/decisions/github-actions-ci/README.md` "현재 결정"을 이 ADR 요지로 갱신
 
-**나중에 생기는 작업 (묶음 2·3)**
-- `server/`·`app/` 스캐폴딩 PR의 **정의에 CI 워크플로 추가를 포함**(체크리스트화).
-- 두 묶음이 켜지면 **paths-filter + 집계 status gate** 구성, 통과 잡들을 브랜치 보호의 required status checks로 등록.
+**완료된 작업 (묶음 2·3, 2026-06-28)**
+- [x] `.github/workflows/ci.yml` 추가 — `changes`(paths-filter) → `app`/`server` 잡 → `gate`(집계, `always()`+skipped=통과).
+- [x] `server/eslint.config.js` + prettier 셋업(devDeps+lock), `home.routes.ts` `prefer-const` 1건 수정, server 일괄 prettier 포맷.
+- [x] `.github/dependabot.yml` — `npm`(/server)·`pub`(/app) 추가(기존 github-actions와 함께 3개 생태계).
+- [x] Dependabot PR 제목/커밋 검증 스텝 예외(`docs-and-conventions.yml`).
+- [ ] **(수동)** develop 브랜치 보호 → required status checks에 **`CI 게이트`** 추가(`app`/`server` 잡은 직접 등록 금지). 도입 PR 머지 후 설정.
 
 **트레이드오프**
 - 검사가 한 번에 다 켜지지 않아 "CI가 약해 보이는" 구간이 있으나, 코드가 없으므로 실제 리스크는 시크릿·문서 링크뿐이고 그건 묶음 1이 덮는다.
 
 ## 재검토 트리거 (Revisit when)
 
-- **`server/` 스캐폴딩** → 묶음 2 활성화.
-- **`app/` 스캐폴딩** → 묶음 3 활성화.
-- **두 묶음 다 가동** → paths-filter + required status gate 구성, 보호 룰에 status check 등록.
+- ~~**`server/` 스캐폴딩** → 묶음 2 활성화.~~ ✅ 2026-06-28 완료
+- ~~**`app/` 스캐폴딩** → 묶음 3 활성화.~~ ✅ 2026-06-28 완료
+- ~~**두 묶음 다 가동** → paths-filter + required status gate 구성.~~ ✅ `ci.yml`+`CI 게이트`. 보호 룰 등록은 수동(영향 참조).
 - **테스트 스위트 성숙** → 커버리지 게이트(Codecov project/patch) 재검토.
 - **첫 배포 파이프라인 논의** → 릴리스 자동화 재검토.
 - **이슈/PR 급증 또는 외부 기여 시작** → 라벨러/stale·DCO/CLA 재검토.
@@ -131,3 +137,4 @@
 |------|------|------|
 | 2026-06 | 빈 자리 생성(결정 없음) | 🟡 검토 중 |
 | 2026-06-26 | 도입 범위 확정 — 스캐폴딩 단계별 활성화(묶음 1 지금/2·3 코드 생길 때) | ✅ 확정 |
+| 2026-06-28 | 묶음 2·3 활성화 — `ci.yml`(changes→app/server→gate) + eslint/prettier + Dependabot(npm/pub) + 코드검사 워크플로 단일화 정정 | ✅ 가동 |

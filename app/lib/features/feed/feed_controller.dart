@@ -112,7 +112,8 @@ class FeedController extends Notifier<FeedState> {
   }
 
   /// 상세 화면에서 좋아요가 바뀌었을 때 목록 상태만 동기화(API 재호출 없음).
-  void syncLike(String recordId, {required bool liked, required int likeCount}) {
+  void syncLike(String recordId,
+      {required bool liked, required int likeCount}) {
     if (state.posts.every((p) => p.recordId != recordId)) return;
     _patch(recordId, liked: liked, likeCount: likeCount);
   }

@@ -112,8 +112,7 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
     super.dispose();
   }
 
-  int get _totalKcal =>
-      _items.fold(0, (sum, it) => sum + it.calories);
+  int get _totalKcal => _items.fold(0, (sum, it) => sum + it.calories);
 
   bool get _valid => _items.every((it) => it.hasName);
 
@@ -248,7 +247,8 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
       clipBehavior: Clip.none,
       children: [
         img,
-        Positioned(left: 18.w, bottom: -21.h, child: CalorieChip(kcal: _totalKcal)),
+        Positioned(
+            left: 18.w, bottom: -21.h, child: CalorieChip(kcal: _totalKcal)),
       ],
     );
   }
@@ -264,9 +264,8 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
               children: [
                 Icon(Icons.check,
                     size: 18.r,
-                    color: item.isAi
-                        ? AppColors.successText2
-                        : AppColors.text4D),
+                    color:
+                        item.isAi ? AppColors.successText2 : AppColors.text4D),
                 SizedBox(width: 4.w),
                 Text(item.isAi ? 'AI 분석 완료' : '직접 입력',
                     style: AppType.label(
@@ -279,8 +278,8 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
             if (!item.isAi)
               GestureDetector(
                 onTap: () => _removeItem(item),
-                child: Text('삭제',
-                    style: AppType.caption(color: AppColors.text85)),
+                child:
+                    Text('삭제', style: AppType.caption(color: AppColors.text85)),
               ),
           ],
         ),
@@ -332,7 +331,8 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
   }
 
   /// 편집 가능한 영양 박스 — 라벨 + 그램 입력(색상별).
-  Widget _macroField(_ItemFields item, Macro macro, TextEditingController ctrl) {
+  Widget _macroField(
+      _ItemFields item, Macro macro, TextEditingController ctrl) {
     return Container(
       height: 56.h,
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 7.h),
@@ -346,12 +346,14 @@ class _RecordEditScreenState extends ConsumerState<RecordEditScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(macro.label,
-              style: AppType.label(color: AppColors.text85, w: FontWeight.w600)),
+              style:
+                  AppType.label(color: AppColors.text85, w: FontWeight.w600)),
           SizedBox(
             height: 22.h,
             child: TextField(
               controller: ctrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],

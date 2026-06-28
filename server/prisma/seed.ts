@@ -4,7 +4,18 @@ import { PrismaClient, type GoalDir, type Gender } from '@prisma/client';
 // 목표방향 lose:maintain:gain ≈ 5:2:3, ageBucket 1980~2000, postCount/lastPostedAt 분산.
 const prisma = new PrismaClient();
 
-const DIRS: GoalDir[] = ['lose', 'lose', 'lose', 'lose', 'lose', 'maintain', 'maintain', 'gain', 'gain', 'gain'];
+const DIRS: GoalDir[] = [
+  'lose',
+  'lose',
+  'lose',
+  'lose',
+  'lose',
+  'maintain',
+  'maintain',
+  'gain',
+  'gain',
+  'gain',
+];
 const GENDERS: Gender[] = ['male', 'female', 'other'];
 
 async function main() {
@@ -16,7 +27,8 @@ async function main() {
     const postCount = 1 + ((i * 3) % 30);
     const daysAgo = i % 14;
     const lastPostedAt = new Date(Date.UTC(2026, 5, 26) - daysAgo * 86400_000);
-    const weeklyWeightDelta = dir === 'lose' ? -0.3 - (i % 3) * 0.1 : dir === 'gain' ? 0.2 + (i % 3) * 0.1 : 0;
+    const weeklyWeightDelta =
+      dir === 'lose' ? -0.3 - (i % 3) * 0.1 : dir === 'gain' ? 0.2 + (i % 3) * 0.1 : 0;
     const dailyCalorieTarget = 1500 + (i % 8) * 100;
 
     await prisma.user.upsert({

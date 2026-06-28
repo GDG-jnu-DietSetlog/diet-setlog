@@ -39,7 +39,9 @@ export function goalSimilarity(me: RecSignals, c: RecSignals): number {
 export function activityRecency(c: RecSignals, now: Date): number {
   const postScore = Math.min(c.postCount, POST_CAP) / POST_CAP;
   const recent =
-    c.lastPostedAt != null && now.getTime() - c.lastPostedAt.getTime() <= RECENT_DAYS * 86400_000 ? 1 : 0;
+    c.lastPostedAt != null && now.getTime() - c.lastPostedAt.getTime() <= RECENT_DAYS * 86400_000
+      ? 1
+      : 0;
   return 0.5 * postScore + 0.5 * recent;
 }
 

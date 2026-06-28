@@ -35,7 +35,10 @@ async function myFollowingIds(userId: string): Promise<Set<string>> {
 }
 
 // 후보별 mutualFriendCount = |내 following ∩ 후보의 following| (배치, N+1 금지).
-async function mutualCounts(myFollowing: Set<string>, candidateIds: string[]): Promise<Map<string, number>> {
+async function mutualCounts(
+  myFollowing: Set<string>,
+  candidateIds: string[],
+): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (candidateIds.length === 0) return map;
   const rels = await prisma.friendRelation.findMany({
@@ -63,7 +66,10 @@ async function certifiedTodaySet(userIds: string[], todayDate: Date): Promise<Se
 async function loadSignals(userIds: string[]): Promise<Map<string, SignalRow>> {
   const map = new Map<string, SignalRow>();
   if (userIds.length === 0) return map;
-  const users = await prisma.user.findMany({ where: { id: { in: userIds } }, include: { profile: true } });
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    include: { profile: true },
+  });
   for (const u of users) {
     map.set(u.id, {
       goalDirection: u.goalDirection,
@@ -93,7 +99,10 @@ friendsRouter.get(
       where: cur
         ? {
             followerId: me,
-            OR: [{ createdAt: { lt: new Date(cur.c) } }, { createdAt: new Date(cur.c), id: { lt: cur.id } }],
+            OR: [
+              { createdAt: { lt: new Date(cur.c) } },
+              { createdAt: new Date(cur.c), id: { lt: cur.id } },
+            ],
           }
         : { followerId: me },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -104,7 +113,10 @@ friendsRouter.get(
     const hasMore = relations.length > limit;
     const page = relations.slice(0, limit);
     const ids = page.map((r) => r.followingId);
-    const [myFollowing, certified] = await Promise.all([myFollowingIds(me), certifiedTodaySet(ids, kstToday().date)]);
+    const [myFollowing, certified] = await Promise.all([
+      myFollowingIds(me),
+      certifiedTodaySet(ids, kstToday().date),
+    ]);
     const mutual = await mutualCounts(myFollowing, ids);
 
     const friends = page.map((r) => ({
@@ -117,7 +129,8 @@ friendsRouter.get(
     const last = page[page.length - 1];
     res.json({
       friends,
-      nextCursor: hasMore && last ? encodeCursor({ c: last.createdAt.toISOString(), id: last.id }) : null,
+      nextCursor:
+        hasMore && last ? encodeCursor({ c: last.createdAt.toISOString(), id: last.id }) : null,
     });
   }),
 );
@@ -166,7 +179,11 @@ friendsRouter.get(
       // ② 목표/나이 폴백
       if (meSig?.goalDirection != null && meSig.ageBucket != null) {
         const fb = await prisma.user.findMany({
-          where: { goalDirection: meSig.goalDirection, ageBucket: meSig.ageBucket, id: { notIn: [...excluded] } },
+          where: {
+            goalDirection: meSig.goalDirection,
+            ageBucket: meSig.ageBucket,
+            id: { notIn: [...excluded] },
+          },
           select: { id: true },
           take: FALLBACK_CAP,
         });
@@ -185,7 +202,10 @@ friendsRouter.get(
       candidateIds = [...set];
     }
 
-    const [signals, mutual] = await Promise.all([loadSignals(candidateIds), mutualCounts(myFollowing, candidateIds)]);
+    const [signals, mutual] = await Promise.all([
+      loadSignals(candidateIds),
+      mutualCounts(myFollowing, candidateIds),
+    ]);
 
     const ranked: Array<RankedCandidate & { selected: boolean }> = candidateIds
       .map((id) => {
@@ -219,7 +239,10 @@ friendsRouter.get(
         selected: r.selected,
       };
     });
-    res.json({ users, nextCursor: offset + limit < ranked.length ? encodeCursor({ o: offset + limit }) : null });
+    res.json({
+      users,
+      nextCursor: offset + limit < ranked.length ? encodeCursor({ o: offset + limit }) : null,
+    });
   }),
 );
 
@@ -256,7 +279,9 @@ friendsRouter.delete(
     const me = req.auth!.userId;
     const target = req.params.friendUserId!;
     await prisma.$transaction(async (tx) => {
-      const del = await tx.friendRelation.deleteMany({ where: { followerId: me, followingId: target } });
+      const del = await tx.friendRelation.deleteMany({
+        where: { followerId: me, followingId: target },
+      });
       if (del.count > 0) {
         await tx.user.update({ where: { id: me }, data: { followingCount: { decrement: 1 } } });
         await tx.user.update({ where: { id: target }, data: { followerCount: { decrement: 1 } } });

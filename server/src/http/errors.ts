@@ -37,7 +37,11 @@ export class AppError extends Error {
 
   toBody() {
     return {
-      error: { code: this.code, message: this.message, ...(this.fields ? { fields: this.fields } : {}) },
+      error: {
+        code: this.code,
+        message: this.message,
+        ...(this.fields ? { fields: this.fields } : {}),
+      },
     };
   }
 }

@@ -48,7 +48,8 @@ calendarRouter.get(
       calorieTarget,
       totalCalories: sum.totalCalories,
       macros: { proteinG: sum.proteinG, carbsG: sum.carbsG, fatG: sum.fatG },
-      progressPercent: calorieTarget > 0 ? Math.round((sum.totalCalories / calorieTarget) * 100) : 0,
+      progressPercent:
+        calorieTarget > 0 ? Math.round((sum.totalCalories / calorieTarget) * 100) : 0,
       recordsByMeal,
     });
   }),

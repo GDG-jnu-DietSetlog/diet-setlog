@@ -168,7 +168,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               recordId: state.posts[i].recordId,
               onAdded: () => ctrl.bumpCommentCount(state.posts[i].recordId),
             ),
-            onOpen: () => context.push(Routes.feedDetail, extra: state.posts[i]),
+            onOpen: () =>
+                context.push(Routes.feedDetail, extra: state.posts[i]),
           );
         },
       ),

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { goalSimilarity, activityRecency, compareCandidates, type RecSignals } from './recommend.js';
+import {
+  goalSimilarity,
+  activityRecency,
+  compareCandidates,
+  type RecSignals,
+} from './recommend.js';
 
 const base: RecSignals = {
   goalDirection: 'lose',
@@ -37,7 +42,12 @@ describe('activityRecency', () => {
     expect(activityRecency({ ...base, postCount: 0, lastPostedAt: null }, now)).toBe(0);
   });
   it('post 20 + 최근 글 → 1', () => {
-    expect(activityRecency({ ...base, postCount: 20, lastPostedAt: new Date('2026-06-24T00:00:00Z') }, now)).toBe(1);
+    expect(
+      activityRecency(
+        { ...base, postCount: 20, lastPostedAt: new Date('2026-06-24T00:00:00Z') },
+        now,
+      ),
+    ).toBe(1);
   });
 });
 
