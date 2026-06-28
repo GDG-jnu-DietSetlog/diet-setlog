@@ -25,3 +25,12 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: build
+    # 현재 Flutter 3.24.5 / Dart 3.5.4 핀(pubspec sdk ^3.5.4)보다 높은 SDK를 요구해
+    # pub get version solving 이 실패하는 패키지들 — SDK 업그레이드 전까지 보류(이슈 #58).
+    # ⚠️ SDK 업그레이드 시 이 ignore 블록을 제거할 것.
+    ignore:
+      - dependency-name: go_router # 17.3.0 → Dart ^3.10.0
+      - dependency-name: image_picker # 1.2.2 → Dart ^3.9.0
+      - dependency-name: intl # 0.20.3 → Dart ^3.9.0
+      - dependency-name: flutter_lints # 6.0.0 → Dart ^3.8.0
+      - dependency-name: freezed # 2.5.8 → source_gen 2 → Dart ^3.6.0
