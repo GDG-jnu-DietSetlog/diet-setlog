@@ -1,13 +1,6 @@
 import express from 'express';
 import { env } from './env.js';
-import { sessionRouter } from './modules/session/session.routes.js';
-import { profileRouter } from './modules/profile/profile.routes.js';
-import { homeRouter } from './modules/home/home.routes.js';
-import { recordsRouter } from './modules/records/records.routes.js';
-import { calendarRouter } from './modules/calendar/calendar.routes.js';
-import { friendsRouter } from './modules/friends/friends.routes.js';
-import { feedRouter, postsRouter } from './modules/feed/feed.routes.js';
-import { analysesRouter } from './modules/analyses/analyses.routes.js';
+import { routeGroups } from './routes.js';
 import { startAnalysisWorker } from './modules/analyses/analysis.queue.js';
 import { ensureBucket } from './lib/storage.js';
 import { usingMockGemini } from './lib/gemini.js';
@@ -33,15 +26,8 @@ app.use((req, res, next) => {
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // v1 라우트. 미들웨어 순서: (rateLimit →) authGuard → handler. rateLimit/Redis 는 후속 wave.
-app.use('/v1/sessions', sessionRouter);
-app.use('/v1/me', profileRouter);
-app.use('/v1/home', homeRouter);
-app.use('/v1/food-records', recordsRouter);
-app.use('/v1/calendar', calendarRouter);
-app.use('/v1/friends', friendsRouter);
-app.use('/v1/feed', feedRouter);
-app.use('/v1/posts', postsRouter);
-app.use('/v1/food-analyses', analysesRouter);
+// 마운트 목록은 routes.ts(단일 진실원) — 계약 가드 테스트가 openapi.yaml 동기화를 강제한다.
+for (const [mount, router] of routeGroups) app.use(mount, router);
 
 // 중앙 에러 핸들러는 마지막.
 app.use(errorHandler);
