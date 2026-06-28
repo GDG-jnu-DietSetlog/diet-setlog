@@ -3,7 +3,9 @@
 // 스키마는 단일 소유 barrier라 전체를 한 번에 확정한다(피드/분석 포함).
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // driverAdapters: 테스트에서 pglite(인메모리 Postgres) 어댑터를 붙이기 위함.
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

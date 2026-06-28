@@ -70,7 +70,7 @@ jobs:
         uses: VeryGoodOpenSource/very_good_coverage@v3
         with:
           path: app/coverage/lcov.info
-          min_coverage: 19
+          min_coverage: 33
 
   # ── Node/TypeScript (묶음2) ──────────────────────────────────
   server:
