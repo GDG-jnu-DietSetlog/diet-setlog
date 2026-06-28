@@ -24,7 +24,7 @@ jobs:
         # Dependabot PR은 제목 끝 (#이슈번호)가 없으므로 검증 스텝만 건너뛴다.
         # (잡 자체는 통과로 끝나 required check 가 pending 으로 묶이지 않음)
         if: github.actor != 'dependabot[bot]'
-        uses: amannn/action-semantic-pull-request@v5
+        uses: amannn/action-semantic-pull-request@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
