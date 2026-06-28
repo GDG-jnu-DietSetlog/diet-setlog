@@ -1,7 +1,7 @@
 # GitHub Actions CI 도입 — 결정
 
-- **현재 상태**: ✅ 확정 (검사 항목은 코드 스캐폴딩 시점에 단계적 활성화)
-- **최종 갱신**: 2026-06-26
+- **현재 상태**: ✅ 확정 · 묶음 1·2·3 모두 활성화 (2026-06-28)
+- **최종 갱신**: 2026-06-28
 - **관련**: [리서치](../../research/github-actions-ci/README.md) · [설계](../../plans/api-db-design.md) · [CLAUDE.md](../../../CLAUDE.md)
 - **상위 카탈로그**: [../README.md](../README.md)
 
@@ -22,10 +22,10 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 
 - **묶음 1 — 지금**: 커밋/PR 컨벤션(적용됨) · Secret scanning + push protection · Dependabot(github-actions) · 문서 링크 체크. 
   비코드(문서·제목·컨벤션) 검사는 **워크플로 1개(`docs-and-conventions.yml`) 아래 하위 잡**으로 통합.
-- **묶음 2 — `server/` 스캐폴딩 시**: eslint·prettier·`tsc --noEmit`·test·CodeQL·Dependabot(npm).
-- **묶음 3 — `app/` 스캐폴딩 시**: `dart format`·`flutter analyze`·`flutter test`·Dependabot(pub).
-- 두 묶음 가동 시 **paths-filter + 집계 status gate**(스킵-잡 required 함정 회피).
-- **보류**: 커버리지 게이트(테스트 없음)·릴리스 자동화·라벨러/stale·DCO/CLA.
+- **묶음 2 — `server/`(2026-06-28 활성화)**: eslint·prettier(`--check`)·`tsc --noEmit`·test(vitest) + Dependabot(npm). CodeQL은 보류.
+- **묶음 3 — `app/`(2026-06-28 활성화)**: `dart format --set-exit-if-changed`·`flutter analyze --fatal-infos`·`flutter test` + Dependabot(pub).
+- 두 묶음은 **단일 `ci.yml` 내 잡 분리 + paths-filter + 집계 `CI 게이트`** 1개만 required(스킵-잡 함정 회피).
+- **보류**: 커버리지 게이트(테스트 baseline 미성숙)·CodeQL·릴리스 자동화·라벨러/stale·DCO/CLA.
 
 ## 열린 질문 (정할 것)
 
@@ -33,7 +33,7 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 - [x] 커밋 검사 방식 → PR 제목(semantic) + 모든 커밋 commitlint, 비코드 검사로 통합
 - [x] 보안 스캔 범위(1차) → secret scanning + push protection + Dependabot(actions); CodeQL은 server 생길 때
 - [ ] 테스트/커버리지 게이트 강도 (테스트 생긴 뒤)
-- [ ] 모노레포 paths-filter + required status check 세부 구성 (app·server 둘 다 생길 때)
+- [x] 모노레포 paths-filter + required status check 세부 구성 → 단일 `ci.yml`(changes→app/server→gate), `CI 게이트`만 required ([0001](0001-ci-adoption-scope.md))
 - [ ] 릴리스 자동화 도입 여부·시점
 
 ## 근거 (Rationale)
@@ -42,9 +42,9 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 
 ## 영향 (Consequences)
 
-- 비코드 검사 통합: `commitlint.yml` + `pr-title.yml` → `docs-and-conventions.yml`(하위 잡 `pr-title`/`commitlint`/`docs-links`).
-- 저장소 설정: Secret scanning + push protection 활성화, `.github/dependabot.yml`(github-actions).
-- `server/`·`app/` 스캐폴딩 PR 정의에 해당 묶음 CI 추가를 포함. 상세: [0001 §영향](0001-ci-adoption-scope.md).
+- 비코드 검사 통합: `commitlint.yml` + `pr-title.yml` → `docs-and-conventions.yml`(하위 잡 `pr-title`/`commitlint`/`docs-links`). Dependabot PR은 제목/커밋 검증 스텝을 건너뜀(잡은 green 유지).
+- 저장소 설정: Secret scanning + push protection 활성화, `.github/dependabot.yml`(github-actions + npm/server + pub/app).
+- 코드 검사(묶음 2·3): `.github/workflows/ci.yml`(changes→app/server→gate), `server/eslint.config.js` + prettier 셋업. 상세: [0001 §영향](0001-ci-adoption-scope.md).
 
 ## 재검토 트리거 (Revisit when)
 
@@ -56,3 +56,4 @@ diet-setlog는 `app/`(Flutter) + `server/`(Node/TS) 모노레포이고, Angular 
 |------|------|------|
 | 2026-06 | 빈 자리 생성(결정 없음) | 🟡 검토 중 |
 | 2026-06-26 | 도입 범위 확정([0001](0001-ci-adoption-scope.md)) — 단계별 활성화, 비코드 검사 워크플로 통합 | ✅ 확정 |
+| 2026-06-28 | 묶음 2·3 활성화 — `ci.yml`(changes→app/server→gate) + eslint/prettier + Dependabot(npm/pub) | ✅ 가동 |

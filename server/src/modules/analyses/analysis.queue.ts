@@ -14,7 +14,12 @@ export async function enqueueAnalysis(analysisId: string): Promise<void> {
   await analysisQueue.add(
     'analyze',
     { analysisId },
-    { attempts: 2, backoff: { type: 'exponential', delay: 1000 }, removeOnComplete: 100, removeOnFail: 100 },
+    {
+      attempts: 2,
+      backoff: { type: 'exponential', delay: 1000 },
+      removeOnComplete: 100,
+      removeOnFail: 100,
+    },
   );
 }
 
@@ -38,7 +43,10 @@ async function processJob(job: Job<{ analysisId: string }>): Promise<void> {
 
   try {
     const buffer = await getObjectBuffer(analysis.imageKey);
-    const raw = await withTimeout(analyzeFoodImage(buffer, mimeFromKey(analysis.imageKey)), MODEL_TIMEOUT_MS);
+    const raw = await withTimeout(
+      analyzeFoodImage(buffer, mimeFromKey(analysis.imageKey)),
+      MODEL_TIMEOUT_MS,
+    );
     const outcome = normalizeAnalysis(raw);
 
     if (outcome.status === 'completed') {
@@ -54,7 +62,12 @@ async function processJob(job: Job<{ analysisId: string }>): Promise<void> {
     } else {
       await prisma.foodAnalysis.update({
         where: { id: analysisId },
-        data: { status: 'failed', geminiRaw: raw as object, errorCode: outcome.errorCode, errorMsg: outcome.message },
+        data: {
+          status: 'failed',
+          geminiRaw: raw as object,
+          errorCode: outcome.errorCode,
+          errorMsg: outcome.message,
+        },
       });
     }
   } catch (e) {
@@ -75,8 +88,13 @@ let worker: Worker | null = null;
 // 워커 기동(서버 부팅 시). 비동기 큐로 요청 흐름과 분리(spec-lock §5.1).
 export function startAnalysisWorker(): Worker {
   if (!worker) {
-    worker = new Worker<{ analysisId: string }>(QUEUE, processJob, { connection: redisConnection, concurrency: 4 });
-    worker.on('failed', (job, err) => console.error(`[analysis] job ${job?.id} failed:`, err.message));
+    worker = new Worker<{ analysisId: string }>(QUEUE, processJob, {
+      connection: redisConnection,
+      concurrency: 4,
+    });
+    worker.on('failed', (job, err) =>
+      console.error(`[analysis] job ${job?.id} failed:`, err.message),
+    );
   }
   return worker;
 }

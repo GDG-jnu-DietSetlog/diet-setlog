@@ -16,7 +16,11 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const upsertSchema = z.object({
   displayName: z.string().min(1).max(50),
   gender: z.enum(['male', 'female', 'other']),
-  birthYear: z.number().int().min(1920).max(CURRENT_YEAR - 14),
+  birthYear: z
+    .number()
+    .int()
+    .min(1920)
+    .max(CURRENT_YEAR - 14),
   heightCm: z.number().min(80).max(250),
   currentWeightKg: z.number().min(20).max(400),
   targetWeightKg: z.number().min(20).max(400),
@@ -89,7 +93,11 @@ profileRouter.put(
     const profile = await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
-        data: { displayName: body.displayName, goalDirection: calc.goalDirection, ageBucket: calc.ageBucket },
+        data: {
+          displayName: body.displayName,
+          goalDirection: calc.goalDirection,
+          ageBucket: calc.ageBucket,
+        },
       });
       return tx.profile.upsert({
         where: { userId },

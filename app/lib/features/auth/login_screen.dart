@@ -77,7 +77,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0x00FFFFFF), Color(0xA3FFFFFF), AppColors.white],
+                  colors: [
+                    Color(0x00FFFFFF),
+                    Color(0xA3FFFFFF),
+                    AppColors.white
+                  ],
                   stops: [0.0, 0.34, 0.70],
                 ),
               ),

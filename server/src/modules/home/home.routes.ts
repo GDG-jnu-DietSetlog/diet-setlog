@@ -30,7 +30,10 @@ homeRouter.get(
         take: RECENT_LIMIT,
         include: { items: true },
       }),
-      prisma.friendRelation.findMany({ where: { followerId: userId }, select: { followingId: true } }),
+      prisma.friendRelation.findMany({
+        where: { followerId: userId },
+        select: { followingId: true },
+      }),
     ]);
 
     if (!user) throw new AppError('UNAUTHORIZED', 'user not found');
@@ -44,8 +47,12 @@ homeRouter.get(
 
     // friendsCertifiedToday: 내가 follow한 사람 중 오늘 기록 1건+
     const followingIds = following.map((f) => f.followingId);
-    let friendsCertifiedToday: Array<{ id: string; displayName: string; avatarUrl: string | null; certifiedAt: string }> =
-      [];
+    const friendsCertifiedToday: Array<{
+      id: string;
+      displayName: string;
+      avatarUrl: string | null;
+      certifiedAt: string;
+    }> = [];
     if (followingIds.length > 0) {
       const certs = await prisma.foodRecord.findMany({
         where: { userId: { in: followingIds }, eatenLocalDate: today.date },

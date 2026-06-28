@@ -43,13 +43,21 @@ export type NormalizeOutcome =
 export function normalizeAnalysis(raw: unknown): NormalizeOutcome {
   const parsed = rawSchema.safeParse(raw);
   if (!parsed.success) {
-    return { status: 'failed', errorCode: 'MODEL_ERROR', message: 'model output failed schema validation' };
+    return {
+      status: 'failed',
+      errorCode: 'MODEL_ERROR',
+      message: 'model output failed schema validation',
+    };
   }
   const r = parsed.data;
 
   // 음식 없음 → 실패(spec-lock §9).
   if (r.dishName === '' && r.items.length === 0) {
-    return { status: 'failed', errorCode: 'NO_FOOD_DETECTED', message: 'no recognizable food in image' };
+    return {
+      status: 'failed',
+      errorCode: 'NO_FOOD_DETECTED',
+      message: 'no recognizable food in image',
+    };
   }
 
   const result: AnalysisResult = {
@@ -69,6 +77,7 @@ export function normalizeAnalysis(raw: unknown): NormalizeOutcome {
   };
 
   // needsReview: confidence<0.6 || items 비어있음 || (totalCalories==0 && dishName!="")
-  const needsReview = r.confidence < 0.6 || r.items.length === 0 || (result.totalCalories === 0 && r.dishName !== '');
+  const needsReview =
+    r.confidence < 0.6 || r.items.length === 0 || (result.totalCalories === 0 && r.dishName !== '');
   return { status: 'completed', result, needsReview };
 }

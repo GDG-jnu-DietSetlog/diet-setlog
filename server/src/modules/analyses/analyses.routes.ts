@@ -25,16 +25,26 @@ analysesRouter.post(
   asyncHandler(async (req, res) => {
     const me = req.auth!.userId;
     const file = req.file;
-    if (!file) throw new AppError('VALIDATION_FAILED', 'image file required', { image: 'required' });
+    if (!file)
+      throw new AppError('VALIDATION_FAILED', 'image file required', { image: 'required' });
     if (!ALLOWED.has(file.mimetype)) {
-      throw new AppError('VALIDATION_FAILED', 'unsupported image type', { image: 'jpeg|png|webp only' });
+      throw new AppError('VALIDATION_FAILED', 'unsupported image type', {
+        image: 'jpeg|png|webp only',
+      });
     }
-    if (file.size < MIN_BYTES) throw new AppError('VALIDATION_FAILED', 'image too small', { image: 'min 1KB' });
+    if (file.size < MIN_BYTES)
+      throw new AppError('VALIDATION_FAILED', 'image too small', { image: 'min 1KB' });
     const source = sourceSchema.parse(req.body.source);
 
     const { key, url } = await uploadImage(file.buffer, file.mimetype);
     const analysis = await prisma.foodAnalysis.create({
-      data: { userId: me, imageKey: key, imageUrl: url, source: source ?? null, status: 'processing' },
+      data: {
+        userId: me,
+        imageKey: key,
+        imageUrl: url,
+        source: source ?? null,
+        status: 'processing',
+      },
     });
     await enqueueAnalysis(analysis.id);
 
@@ -48,7 +58,9 @@ analysesRouter.get(
   authGuard,
   asyncHandler(async (req, res) => {
     const me = req.auth!.userId;
-    const analysis = await prisma.foodAnalysis.findUnique({ where: { id: req.params.analysisId! } });
+    const analysis = await prisma.foodAnalysis.findUnique({
+      where: { id: req.params.analysisId! },
+    });
     if (!analysis || analysis.userId !== me) throw new AppError('NOT_FOUND', 'analysis not found');
 
     if (analysis.status === 'completed') {

@@ -4,7 +4,8 @@ import '../../design/app_colors.dart';
 
 /// 약관/개인정보 등 정적 법무 문서 한 조항.
 class LegalSection {
-  const LegalSection(this.heading, {this.intro, this.body = const [], this.ordered = false});
+  const LegalSection(this.heading,
+      {this.intro, this.body = const [], this.ordered = false});
   final String heading;
   final String? intro; // 항목 앞 안내 문장(선택)
   final List<String> body; // 문단 또는 번호 항목
@@ -26,7 +27,8 @@ class LegalScreen extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new, size: 20.r, color: AppColors.black),
+          icon: Icon(Icons.arrow_back_ios_new,
+              size: 20.r, color: AppColors.black),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
@@ -94,7 +96,8 @@ class _SectionView extends StatelessWidget {
         ],
         for (var i = 0; i < section.body.length; i++)
           Padding(
-            padding: EdgeInsets.only(bottom: i == section.body.length - 1 ? 0 : 2.h),
+            padding:
+                EdgeInsets.only(bottom: i == section.body.length - 1 ? 0 : 2.h),
             child: section.ordered
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,

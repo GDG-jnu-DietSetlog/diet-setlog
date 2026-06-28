@@ -52,7 +52,8 @@ recordsRouter.post(
     let imageUrl: string | null = null;
     if (body.analysisId) {
       const analysis = await prisma.foodAnalysis.findUnique({ where: { id: body.analysisId } });
-      if (!analysis || analysis.userId !== userId) throw new AppError('NOT_FOUND', 'analysis not found');
+      if (!analysis || analysis.userId !== userId)
+        throw new AppError('NOT_FOUND', 'analysis not found');
       imageUrl = analysis.imageUrl;
     }
 

@@ -39,7 +39,9 @@ export function recordCard(r: FoodRecord & { items: FoodItem[] }) {
 }
 
 // 일별 합계(칼로리/매크로).
-export function sumRecords(records: Array<Pick<FoodRecord, 'totalCalories' | 'proteinG' | 'carbsG' | 'fatG'>>) {
+export function sumRecords(
+  records: Array<Pick<FoodRecord, 'totalCalories' | 'proteinG' | 'carbsG' | 'fatG'>>,
+) {
   return records.reduce(
     (acc, r) => ({
       totalCalories: acc.totalCalories + r.totalCalories,

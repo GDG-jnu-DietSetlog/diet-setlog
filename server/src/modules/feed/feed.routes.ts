@@ -19,7 +19,12 @@ function authorRef(u: AuthorSel) {
 }
 
 function commentCard(c: PostComment & { user: AuthorSel }) {
-  return { id: c.id, author: authorRef(c.user), body: c.body, createdAt: c.createdAt.toISOString() };
+  return {
+    id: c.id,
+    author: authorRef(c.user),
+    body: c.body,
+    createdAt: c.createdAt.toISOString(),
+  };
 }
 
 // 글이 나에게 보이는지(본인/팔로위 + publishedToFeed) 확인, 아니면 404.
@@ -57,7 +62,12 @@ feedRouter.get(
         publishedToFeed: true,
         ...(mealType ? { mealType: mealType as FoodRecord['mealType'] } : {}),
         ...(cur
-          ? { OR: [{ createdAt: { lt: new Date(cur.c) } }, { createdAt: new Date(cur.c), id: { lt: cur.id } }] }
+          ? {
+              OR: [
+                { createdAt: { lt: new Date(cur.c) } },
+                { createdAt: new Date(cur.c), id: { lt: cur.id } },
+              ],
+            }
           : {}),
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -72,7 +82,10 @@ feedRouter.get(
     // 배치(N+1 금지): 내 좋아요 + 최신 댓글 2개.
     const [myLikes, comments] = await Promise.all([
       ids.length
-        ? prisma.postLike.findMany({ where: { recordId: { in: ids }, userId: me }, select: { recordId: true } })
+        ? prisma.postLike.findMany({
+            where: { recordId: { in: ids }, userId: me },
+            select: { recordId: true },
+          })
         : Promise.resolve([]),
       ids.length
         ? prisma.postComment.findMany({
@@ -108,7 +121,8 @@ feedRouter.get(
     const last = page[page.length - 1];
     res.json({
       posts,
-      nextCursor: hasMore && last ? encodeCursor({ c: last.createdAt.toISOString(), id: last.id }) : null,
+      nextCursor:
+        hasMore && last ? encodeCursor({ c: last.createdAt.toISOString(), id: last.id }) : null,
     });
   }),
 );
@@ -123,13 +137,21 @@ postsRouter.post(
     await assertVisiblePost(recordId, me);
 
     const likeCount = await prisma.$transaction(async (tx) => {
-      const existing = await tx.postLike.findUnique({ where: { recordId_userId: { recordId, userId: me } } });
+      const existing = await tx.postLike.findUnique({
+        where: { recordId_userId: { recordId, userId: me } },
+      });
       if (!existing) {
         await tx.postLike.create({ data: { recordId, userId: me } });
-        const r = await tx.foodRecord.update({ where: { id: recordId }, data: { likeCount: { increment: 1 } } });
+        const r = await tx.foodRecord.update({
+          where: { id: recordId },
+          data: { likeCount: { increment: 1 } },
+        });
         return r.likeCount;
       }
-      const r = await tx.foodRecord.findUnique({ where: { id: recordId }, select: { likeCount: true } });
+      const r = await tx.foodRecord.findUnique({
+        where: { id: recordId },
+        select: { likeCount: true },
+      });
       return r!.likeCount;
     });
     res.json({ recordId, liked: true, likeCount });
@@ -148,10 +170,16 @@ postsRouter.delete(
     const likeCount = await prisma.$transaction(async (tx) => {
       const del = await tx.postLike.deleteMany({ where: { recordId, userId: me } });
       if (del.count > 0) {
-        const r = await tx.foodRecord.update({ where: { id: recordId }, data: { likeCount: { decrement: 1 } } });
+        const r = await tx.foodRecord.update({
+          where: { id: recordId },
+          data: { likeCount: { decrement: 1 } },
+        });
         return r.likeCount;
       }
-      const r = await tx.foodRecord.findUnique({ where: { id: recordId }, select: { likeCount: true } });
+      const r = await tx.foodRecord.findUnique({
+        where: { id: recordId },
+        select: { likeCount: true },
+      });
       return r!.likeCount;
     });
     res.json({ recordId, liked: false, likeCount });
@@ -173,7 +201,12 @@ postsRouter.get(
       where: {
         recordId,
         ...(cur
-          ? { OR: [{ createdAt: { gt: new Date(cur.c) } }, { createdAt: new Date(cur.c), id: { gt: cur.id } }] }
+          ? {
+              OR: [
+                { createdAt: { gt: new Date(cur.c) } },
+                { createdAt: new Date(cur.c), id: { gt: cur.id } },
+              ],
+            }
           : {}),
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -185,7 +218,8 @@ postsRouter.get(
     const last = page[page.length - 1];
     res.json({
       comments: page.map(commentCard),
-      nextCursor: hasMore && last ? encodeCursor({ c: last.createdAt.toISOString(), id: last.id }) : null,
+      nextCursor:
+        hasMore && last ? encodeCursor({ c: last.createdAt.toISOString(), id: last.id }) : null,
     });
   }),
 );
@@ -207,7 +241,10 @@ postsRouter.post(
         data: { recordId, userId: me, body },
         include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
       });
-      await tx.foodRecord.update({ where: { id: recordId }, data: { commentCount: { increment: 1 } } });
+      await tx.foodRecord.update({
+        where: { id: recordId },
+        data: { commentCount: { increment: 1 } },
+      });
       return c;
     });
     res.status(201).json({ comment: commentCard(comment) });

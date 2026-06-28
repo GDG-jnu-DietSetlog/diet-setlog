@@ -1,0 +1,123 @@
+name: 코드 CI
+
+# app/** · server/** 코드 검사 묶음(묶음2·3).
+# 단일 워크플로 안에서 changes(paths-filter) → app/server 잡 → gate(집계) 구조.
+# 브랜치 보호 required status check 로는 "CI 게이트" 잡 하나만 등록한다.
+# (paths-filter 로 스킵된 app/server 잡을 직접 required 로 걸면 머지가 영원히 대기 — 함정 회피)
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# 코드 체크아웃 + 읽기만. PR 코멘트/쓰기 권한 불필요.
+permissions:
+  contents: read
+
+concurrency:
+  group: code-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 변경 경로 감지 ────────────────────────────────────────────
+  changes:
+    name: 변경 경로 감지
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      server: ${{ steps.filter.outputs.server }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app/**'
+            server:
+              - 'server/**'
+
+  # ── Flutter (묶음3) ──────────────────────────────────────────
+  app:
+    name: app (Flutter 검사)
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.24.5
+          channel: stable
+          cache: true # flutter SDK + pub 캐시
+
+      - name: pub get
+        run: flutter pub get
+
+      - name: dart format 검사
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: flutter analyze
+        run: flutter analyze --fatal-infos
+
+      - name: flutter test
+        run: flutter test
+
+  # ── Node/TypeScript (묶음2) ──────────────────────────────────
+  server:
+    name: server (Node/TS 검사)
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: 의존성 설치
+        run: npm ci
+
+      # @prisma/client 타입은 generate 로 생성됨 → typecheck 보다 먼저 필수
+      - name: prisma generate
+        run: npm run prisma:generate
+
+      - name: lint (eslint)
+        run: npm run lint
+
+      - name: format 검사 (prettier)
+        run: npx prettier --check .
+
+      - name: typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: test (vitest)
+        run: npm test
+
+  # ── 집계 게이트 (이 잡만 브랜치 보호 required 로 등록) ──────────
+  gate:
+    name: CI 게이트
+    needs: [app, server]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 하위 잡 결과 집계
+        run: |
+          echo "app=${{ needs.app.result }} server=${{ needs.server.result }}"
+          # 스킵(paths-filter 로 안 도는 경우)은 통과로 본다.
+          # 실패/취소만 게이트를 빨갛게 만든다.
+          for r in "${{ needs.app.result }}" "${{ needs.server.result }}"; do
+            if [ "$r" != "success" ] && [ "$r" != "skipped" ]; then
+              echo "::error::필수 잡이 통과하지 못했습니다 (result=$r)"
+              exit 1
+            fi
+          done
+          echo "모든 코드 검사 통과(또는 해당 없음)."

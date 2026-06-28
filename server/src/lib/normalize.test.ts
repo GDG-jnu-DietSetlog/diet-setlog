@@ -27,7 +27,13 @@ describe('normalizeAnalysis (spec-lock §9)', () => {
   });
 
   it('dishName="" && items=[] → failed NO_FOOD_DETECTED', () => {
-    const r = normalizeAnalysis({ ...ok, dishName: '', items: [], totalCalories: 0, confidence: 0 });
+    const r = normalizeAnalysis({
+      ...ok,
+      dishName: '',
+      items: [],
+      totalCalories: 0,
+      confidence: 0,
+    });
     expect(r.status).toBe('failed');
     if (r.status === 'failed') expect(r.errorCode).toBe('NO_FOOD_DETECTED');
   });

@@ -116,11 +116,12 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
         ));
     try {
       final api = ref.read(feedApiProvider);
-      final res =
-          liked ? await api.like(_post.recordId) : await api.unlike(_post.recordId);
+      final res = liked
+          ? await api.like(_post.recordId)
+          : await api.unlike(_post.recordId);
       if (!mounted) return;
-      setState(() =>
-          _post = _post.copyWith(likedByMe: res.liked, likeCount: res.likeCount));
+      setState(() => _post =
+          _post.copyWith(likedByMe: res.liked, likeCount: res.likeCount));
       ref
           .read(feedControllerProvider.notifier)
           .syncLike(_post.recordId, liked: res.liked, likeCount: res.likeCount);
@@ -138,7 +139,8 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
     if (body.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      final c = await ref.read(feedApiProvider).addComment(_post.recordId, body);
+      final c =
+          await ref.read(feedApiProvider).addComment(_post.recordId, body);
       if (!mounted) return;
       setState(() {
         _comments.add(c);
@@ -146,7 +148,9 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
         _input.clear();
         _sending = false;
       });
-      ref.read(feedControllerProvider.notifier).bumpCommentCount(_post.recordId);
+      ref
+          .read(feedControllerProvider.notifier)
+          .bumpCommentCount(_post.recordId);
     } catch (_) {
       if (!mounted) return;
       setState(() => _sending = false);
@@ -236,12 +240,13 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
               borderRadius: BorderRadius.circular(26.r),
             ),
             child: Text(_post.mealType.labelKo,
-                style:
-                    AppType.micro(color: AppColors.primary, w: FontWeight.w600)),
+                style: AppType.micro(
+                    color: AppColors.primary, w: FontWeight.w600)),
           ),
           const Spacer(),
           Text(_timeAgo(_post.eatenAt),
-              style: AppType.label(color: AppColors.textC7, w: FontWeight.w600)),
+              style:
+                  AppType.label(color: AppColors.textC7, w: FontWeight.w600)),
         ],
       ),
     );
@@ -260,7 +265,9 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
                     Container(height: 360.h, color: AppColors.skeleton),
               )
             : Container(
-                height: 360.h, width: double.infinity, color: AppColors.skeleton),
+                height: 360.h,
+                width: double.infinity,
+                color: AppColors.skeleton),
         Positioned(
           left: 24.w,
           bottom: 12.h,
@@ -303,7 +310,8 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
           child: Iconify(
             _post.likedByMe ? AppIcons.heart : AppIcons.heartOutline,
             size: 24.r,
-            color: _post.likedByMe ? const Color(0xFFFF3B5C) : AppColors.text171,
+            color:
+                _post.likedByMe ? const Color(0xFFFF3B5C) : AppColors.text171,
           ),
         ),
         SizedBox(width: 6.w),
@@ -312,7 +320,8 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
         SizedBox(width: 16.w),
         GestureDetector(
           onTap: () => _inputFocus.requestFocus(),
-          child: Iconify(AppIcons.comment, size: 24.r, color: AppColors.text171),
+          child:
+              Iconify(AppIcons.comment, size: 24.r, color: AppColors.text171),
         ),
         SizedBox(width: 6.w),
         Text('${_post.commentCount}',
@@ -342,7 +351,8 @@ class _FeedDetailScreenState extends ConsumerState<FeedDetailScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_commentsError!, style: AppType.body(color: AppColors.text82)),
+              Text(_commentsError!,
+                  style: AppType.body(color: AppColors.text82)),
               TextButton(onPressed: _loadComments, child: const Text('다시 시도')),
             ],
           ),
@@ -469,7 +479,8 @@ class _CommentTile extends StatelessWidget {
                         style: AppType.label(w: FontWeight.w700)),
                     SizedBox(width: 6.w),
                     Text(
-                        DateFormat('M.d HH:mm').format(comment.createdAt.toLocal()),
+                        DateFormat('M.d HH:mm')
+                            .format(comment.createdAt.toLocal()),
                         style: AppType.micro(
                             color: AppColors.textC7, w: FontWeight.w500)),
                   ],

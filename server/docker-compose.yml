@@ -8,11 +8,11 @@ services:
       POSTGRES_PASSWORD: dietsetlog
       POSTGRES_DB: dietsetlog
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dietsetlog"]
+      test: ['CMD-SHELL', 'pg_isready -U dietsetlog']
       interval: 3s
       timeout: 3s
       retries: 10
@@ -20,9 +20,9 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 3s
       timeout: 3s
       retries: 10
@@ -30,25 +30,25 @@ services:
   # GCS 에뮬레이터(로컬). 실제 배포는 진짜 GCS + 서비스계정.
   gcs:
     image: fsouza/fake-gcs-server:1.49
-    command: ["-scheme", "http", "-port", "4443", "-public-host", "localhost:4443"]
+    command: ['-scheme', 'http', '-port', '4443', '-public-host', 'localhost:4443']
     ports:
-      - "4443:4443"
+      - '4443:4443'
 
   server:
     build: .
     environment:
-      DATABASE_URL: "postgresql://dietsetlog:dietsetlog@postgres:5432/dietsetlog?schema=public"
-      JWT_SECRET: "dev-only-change-me"
-      PORT: "3000"
-      APP_TZ: "Asia/Seoul"
-      REDIS_URL: "redis://redis:6379"
-      GCS_PROJECT_ID: "dietsetlog-local"
-      GCS_BUCKET: "dietsetlog"
-      GCS_API_ENDPOINT: "http://gcs:4443"
-      GCS_PUBLIC_URL: "http://localhost:4443"
+      DATABASE_URL: 'postgresql://dietsetlog:dietsetlog@postgres:5432/dietsetlog?schema=public'
+      JWT_SECRET: 'dev-only-change-me'
+      PORT: '3000'
+      APP_TZ: 'Asia/Seoul'
+      REDIS_URL: 'redis://redis:6379'
+      GCS_PROJECT_ID: 'dietsetlog-local'
+      GCS_BUCKET: 'dietsetlog'
+      GCS_API_ENDPOINT: 'http://gcs:4443'
+      GCS_PUBLIC_URL: 'http://localhost:4443'
       # GEMINI_API_KEY 미설정 → 목 분석. 실제 키 주입 시 live.
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       postgres:
         condition: service_healthy

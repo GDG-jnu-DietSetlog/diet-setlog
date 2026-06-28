@@ -43,10 +43,7 @@ export function calcProfile(input: ProfileCalcInput): ProfileCalcResult {
   const weeklyWeightDelta = (input.targetWeightKg - input.currentWeightKg) / weeks;
   const dailyAdjust = (weeklyWeightDelta * KCAL_PER_KG) / 7;
 
-  const dailyCalorieTarget = Math.min(
-    CAL_MAX,
-    Math.max(CAL_MIN, Math.round(tdee + dailyAdjust)),
-  );
+  const dailyCalorieTarget = Math.min(CAL_MAX, Math.max(CAL_MIN, Math.round(tdee + dailyAdjust)));
 
   const diff = input.targetWeightKg - input.currentWeightKg;
   const goalDirection: GoalDir = diff < 0 ? 'lose' : diff > 0 ? 'gain' : 'maintain';
