@@ -91,7 +91,8 @@
 
 | 항목 | 보류 이유 | 다시 여는 트리거 |
 |---|---|---|
-| 커버리지 게이트(Codecov) | 테스트가 없어 baseline 불가 | 테스트 스위트 + 의미있는 커버리지 생긴 뒤 |
+| ~~커버리지 게이트~~ → **2026-06-28 자체 임계값 floor 도입** | — | 전체(project) 라인 커버리지 하락 차단을 vitest `thresholds`(server) + `very_good_coverage`(app)로. floor=도입 시점 실측(server 라인 7%, app 19%), 외부 서비스 없음 |
+| Codecov patch(변경 라인) 커버리지 | 외부 연동(토큰) 필요, project floor로 1차 충분 | "새 코드는 테스트와"를 라인 단위로 강제하고 싶을 때 |
 | 릴리스 자동화(release-please 등) | 배포 대상·버전 정책 미정 | 첫 배포 파이프라인 논의 시([리서치 04 §C](../../research/github-actions-ci/04-automation-monorepo-release.md)) |
 | 라벨러/stale 봇 | 소규모·초기엔 효용 낮음 | 이슈/PR 양이 트리아지를 요구할 때 |
 | DCO/CLA | 외부 기여자 없음 | 외부 기여가 늘 때([리서치 03 §B](../../research/github-actions-ci/03-security-and-compliance.md)) |
@@ -138,3 +139,4 @@
 | 2026-06 | 빈 자리 생성(결정 없음) | 🟡 검토 중 |
 | 2026-06-26 | 도입 범위 확정 — 스캐폴딩 단계별 활성화(묶음 1 지금/2·3 코드 생길 때) | ✅ 확정 |
 | 2026-06-28 | 묶음 2·3 활성화 — `ci.yml`(changes→app/server→gate) + eslint/prettier + Dependabot(npm/pub) + 코드검사 워크플로 단일화 정정 | ✅ 가동 |
+| 2026-06-28 | 커버리지 게이트(전체 하락 차단) 도입 — vitest thresholds(server 라인 7%) + very_good_coverage(app 19%), 자체 임계값 floor | ✅ 가동 |

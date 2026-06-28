@@ -62,8 +62,15 @@ jobs:
       - name: flutter analyze
         run: flutter analyze --fatal-infos
 
-      - name: flutter test
-        run: flutter test
+      - name: flutter test (커버리지 수집)
+        run: flutter test --coverage
+
+      # 전체 라인 커버리지가 floor 미만이면 실패(하락 차단). path 는 레포 루트 기준.
+      - name: 커버리지 임계값 검사
+        uses: VeryGoodOpenSource/very_good_coverage@v3
+        with:
+          path: app/coverage/lcov.info
+          min_coverage: 33
 
   # ── Node/TypeScript (묶음2) ──────────────────────────────────
   server:
@@ -99,8 +106,8 @@ jobs:
       - name: typecheck (tsc --noEmit)
         run: npm run typecheck
 
-      - name: test (vitest)
-        run: npm test
+      - name: test + 커버리지 (vitest)
+        run: npm run test:coverage
 
   # ── 집계 게이트 (이 잡만 브랜치 보호 required 로 등록) ──────────
   gate:
