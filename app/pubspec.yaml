@@ -22,7 +22,7 @@ dependencies:
   # 카카오 로그인(SDK) — 온보딩2. 네이티브/JS 키는 빌드 시 --dart-define 으로 주입.
   kakao_flutter_sdk_user: ^1.9.0
   # 카메라/갤러리
-  image_picker: ^1.1.0
+  image_picker: ^1.2.2
   # 이미지 캐시
   cached_network_image: ^3.3.0
   # 불변 모델 + JSON
