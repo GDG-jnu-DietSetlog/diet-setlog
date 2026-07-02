@@ -32,7 +32,9 @@ class PrimaryButton extends StatelessWidget {
       width: width.w,
       height: height.h,
       child: Material(
-        color: active ? AppColors.primary : AppColors.primary.withOpacity(0.4),
+        color: active
+            ? AppColors.primary
+            : AppColors.primary.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(AppSpacing.r12.r),
         child: InkWell(
           borderRadius: BorderRadius.circular(AppSpacing.r12.r),

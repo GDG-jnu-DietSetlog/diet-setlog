@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:diet_setlog/core/providers.dart';
 import 'package:diet_setlog/data/api/friends_api.dart';
 import 'package:diet_setlog/data/models/friends.dart';
 import 'package:diet_setlog/features/friends/friend_search_controller.dart';
+import 'package:diet_setlog/features/friends/friend_search_screen.dart';
 
 SearchUser _user(String id, {bool selected = false}) => SearchUser(
       id: id,
@@ -74,6 +77,8 @@ ProviderContainer _container(FakeFriendsApi fake) {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   // ── 기존 테스트(모델/상태) — 그대로 유지 ──
   test('selectedCount counts selected users', () {
     const state = FriendSearchState();
@@ -257,5 +262,38 @@ void main() {
 
       expect(ctrl.state.users, isEmpty); // stale 'A' 결과 미반영
     });
+  });
+
+  testWidgets('FriendSearchScreen renders Figma v2 Kakao card and CTA',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final fake = FakeFriendsApi()
+      ..searchResult = FriendSearchResponse(users: [
+        _user('1', selected: true),
+        _user('2'),
+      ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [friendsApiProvider.overrideWithValue(fake)],
+        child: ScreenUtilInit(
+          designSize: const Size(390, 844),
+          builder: (context, _) =>
+              const MaterialApp(home: FriendSearchScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('친구 추가'), findsOneWidget);
+    expect(find.text('카카오톡으로 친구 찾기'), findsOneWidget);
+    expect(find.text('추천 친구'), findsOneWidget);
+    expect(find.text('추가됨'), findsOneWidget);
+    expect(find.text('추가'), findsOneWidget);
+    expect(find.text('1명 추가하고 시작하기'), findsOneWidget);
   });
 }

@@ -12,6 +12,7 @@ abstract final class AppIcons {
   static const back = Mdi.arrow_left; // weui:back 대체
   static const close = Mdi.close;
   static const plus = Mdi.plus;
+  static const accountPlus = Mdi.account_plus_outline;
   static const check = Mdi.check;
   static const chevronRight = Mdi.chevron_right;
   static const more = Mdi.dots_horizontal;

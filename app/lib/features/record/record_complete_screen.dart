@@ -39,7 +39,7 @@ class RecordCompleteScreen extends StatelessWidget {
                       width: 92.r,
                       height: 92.r,
                       decoration: BoxDecoration(
-                        color: AppColors.success.withOpacity(0.15),
+                        color: AppColors.success.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: Center(

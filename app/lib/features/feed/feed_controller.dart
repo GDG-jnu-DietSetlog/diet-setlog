@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/env.dart';
 import '../../core/providers.dart';
+import '../../data/api/feed_api.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/feed.dart';
 
@@ -146,3 +147,95 @@ class FeedController extends Notifier<FeedState> {
 
 final feedControllerProvider =
     NotifierProvider<FeedController, FeedState>(FeedController.new);
+
+class FeedStoryController extends Notifier<FeedState> {
+  DateTime? _date;
+  FeedScope _scope = FeedScope.friends;
+
+  @override
+  FeedState build() => const FeedState(loading: false);
+
+  Future<void> refresh({DateTime? date, FeedScope? scope}) async {
+    _date = date ?? _date;
+    _scope = scope ?? _scope;
+    state = state.copyWith(loading: true, clearError: true, clearCursor: true);
+    try {
+      final res = await ref.read(feedApiProvider).getFeed(
+            limit: Env.defaultLimit,
+            date: _date,
+            scope: _scope,
+          );
+      state = state.copyWith(
+        posts: res.posts,
+        nextCursor: res.nextCursor,
+        clearCursor: res.nextCursor == null,
+        loading: false,
+      );
+    } catch (_) {
+      state = state.copyWith(loading: false, error: '피드를 불러오지 못했어요.');
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (state.loadingMore || !state.hasMore) return;
+    state = state.copyWith(loadingMore: true);
+    try {
+      final res = await ref.read(feedApiProvider).getFeed(
+            cursor: state.nextCursor,
+            limit: Env.defaultLimit,
+            date: _date,
+            scope: _scope,
+          );
+      state = state.copyWith(
+        posts: [...state.posts, ...res.posts],
+        nextCursor: res.nextCursor,
+        clearCursor: res.nextCursor == null,
+        loadingMore: false,
+      );
+    } catch (_) {
+      state = state.copyWith(loadingMore: false);
+    }
+  }
+
+  Future<void> toggleLike(FeedPost post) async {
+    final liked = !post.likedByMe;
+    _patch(post.recordId,
+        liked: liked, likeCount: post.likeCount + (liked ? 1 : -1));
+    try {
+      final api = ref.read(feedApiProvider);
+      final res = liked
+          ? await api.like(post.recordId)
+          : await api.unlike(post.recordId);
+      _patch(post.recordId, liked: res.liked, likeCount: res.likeCount);
+    } catch (_) {
+      _patch(post.recordId, liked: post.likedByMe, likeCount: post.likeCount);
+    }
+  }
+
+  void bumpCommentCount(String recordId) {
+    state = state.copyWith(
+      posts: [
+        for (final p in state.posts)
+          if (p.recordId == recordId)
+            p.copyWith(commentCount: p.commentCount + 1)
+          else
+            p,
+      ],
+    );
+  }
+
+  void _patch(String recordId, {required bool liked, required int likeCount}) {
+    state = state.copyWith(
+      posts: [
+        for (final p in state.posts)
+          if (p.recordId == recordId)
+            p.copyWith(likedByMe: liked, likeCount: likeCount)
+          else
+            p,
+      ],
+    );
+  }
+}
+
+final feedStoryControllerProvider =
+    NotifierProvider<FeedStoryController, FeedState>(FeedStoryController.new);

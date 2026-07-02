@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:iconify_flutter/iconify_flutter.dart';
 import '../../core/api/api_exception.dart';
 import '../../data/models/common.dart';
 import '../../data/models/home.dart';
 import '../../design/app_colors.dart';
+import '../../design/app_icons.dart';
 import '../../design/app_typography.dart';
 import '../../design/widgets/initial_avatar.dart';
 import '../../design/widgets/primary_button.dart';
@@ -55,23 +57,110 @@ class _HomeBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final friends = data.friendsCertifiedToday;
+    final hasPosts = data.recentRecords.isNotEmpty;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
+      padding: EdgeInsets.only(bottom: 118.h),
       children: [
-        SizedBox(height: 20.h),
+        _HomeHeader(onAdd: () => _openFriendSearch(context, ref)),
+        const Divider(height: 1, color: AppColors.borderField),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
+          padding: EdgeInsets.fromLTRB(24.w, 10.h, 24.w, 0),
           child: Text('오늘 인증한 친구', style: AppType.bodyBold()),
         ),
-        const Divider(height: 1, color: AppColors.borderField),
-        SizedBox(height: 16.h),
+        SizedBox(height: 14.h),
         _FriendsRow(me: data.currentUser, friends: friends),
-        if (friends.isEmpty)
+        SizedBox(height: 18.h),
+        if (friends.isEmpty && !hasPosts)
           _EmptyFriends(onAdd: () => _openFriendSearch(context, ref))
+        else if (!hasPosts)
+          const _EmptyFeedMessage()
         else
           SizedBox(height: 300.h),
       ],
+    );
+  }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 78.h,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(24.w, 10.h, 24.w, 10.h),
+        child: Row(
+          children: [
+            const _LogoMark(),
+            const Spacer(),
+            IconButton(
+              onPressed: onAdd,
+              icon: Iconify(AppIcons.accountPlus,
+                  size: 24.r, color: AppColors.black),
+            ),
+            SizedBox(width: 8.w),
+            IconButton(
+              onPressed: () {},
+              icon: Iconify(AppIcons.bell, size: 24.r, color: AppColors.black),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoMark extends StatelessWidget {
+  const _LogoMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 38.w,
+      height: 31.h,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 1.w,
+            top: 5.h,
+            child: Container(
+              width: 16.r,
+              height: 21.r,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(14.r),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 1.w,
+            top: 5.h,
+            child: Container(
+              width: 16.r,
+              height: 21.r,
+              decoration: BoxDecoration(
+                color: const Color(0xFF69B7FF),
+                borderRadius: BorderRadius.circular(14.r),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              width: 25.r,
+              height: 13.r,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF5F9EFF), width: 6.r),
+                borderRadius: BorderRadius.circular(18.r),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -84,7 +173,7 @@ class _FriendsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 86.h,
+      height: 84.h,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -184,8 +273,7 @@ class _EmptyFriends extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.bgSheet,
-      padding: EdgeInsets.only(top: 80.h, bottom: 40.h),
-      margin: EdgeInsets.only(top: 24.h),
+      padding: EdgeInsets.only(top: 110.h, bottom: 40.h),
       child: Column(
         children: [
           Container(
@@ -199,7 +287,7 @@ class _EmptyFriends extends StatelessWidget {
           SizedBox(height: 24.h),
           Text('함께할 친구를 찾아보세요', style: AppType.title()),
           SizedBox(height: 8.h),
-          Text('친구와 함께 식단을 인증하고\n서로 응원하며 목표를 이뤄가요.',
+          Text('친구와 식단을 공유하면\n다이어트를 더 오래 이어갈 수 있어요.',
               textAlign: TextAlign.center,
               style: AppType.body(color: AppColors.text87)),
           SizedBox(height: 28.h),
@@ -214,6 +302,24 @@ class _EmptyFriends extends StatelessWidget {
               style: AppType.body(
                   color: const Color(0xFFC2C2C4), w: FontWeight.w600)),
         ],
+      ),
+    );
+  }
+}
+
+class _EmptyFeedMessage extends StatelessWidget {
+  const _EmptyFeedMessage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 470.h,
+      color: AppColors.bgSheet,
+      alignment: Alignment.topCenter,
+      padding: EdgeInsets.only(top: 22.h),
+      child: Text(
+        '최근 공유된 게시물이 없어요.',
+        style: AppType.body(color: const Color(0xFFC2C2C4), w: FontWeight.w600),
       ),
     );
   }
