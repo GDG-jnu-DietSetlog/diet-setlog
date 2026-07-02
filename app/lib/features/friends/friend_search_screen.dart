@@ -43,14 +43,14 @@ class _FriendSearchScreenState extends ConsumerState<FriendSearchScreen> {
         child: Column(
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 0),
+              padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 0),
               child:
                   AppSearchBar(controller: _search, onChanged: ctrl.setQuery),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 12.h),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: const _ContactsCard(),
+              child: const _KakaoFriendsCard(),
             ),
             SizedBox(height: 20.h),
             Align(
@@ -61,12 +61,12 @@ class _FriendSearchScreenState extends ConsumerState<FriendSearchScreen> {
                     style: AppType.bodyBold()),
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 12.h),
             Expanded(child: _list(state, ctrl)),
             Padding(
-              padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 16.h),
+              padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 18.h),
               child: PrimaryButton(
-                label: count > 0 ? '$count명 추가하고 시작하기' : '선택하기',
+                label: count > 0 ? '$count명 추가하고 시작하기' : '친구 추가하고 시작하기',
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
             ),
@@ -110,8 +110,8 @@ class _FriendSearchScreenState extends ConsumerState<FriendSearchScreen> {
   }
 }
 
-class _ContactsCard extends StatelessWidget {
-  const _ContactsCard();
+class _KakaoFriendsCard extends StatelessWidget {
+  const _KakaoFriendsCard();
 
   @override
   Widget build(BuildContext context) {
@@ -119,27 +119,19 @@ class _ContactsCard extends StatelessWidget {
       height: 58.h,
       padding: EdgeInsets.symmetric(horizontal: 12.w),
       decoration: BoxDecoration(
-        color: AppColors.primaryTint,
+        color: const Color(0xFFFFFBD8),
         borderRadius: BorderRadius.circular(AppSpacing.r12.r),
       ),
       child: Row(
         children: [
-          Container(
-            width: 38.r,
-            height: 38.r,
-            decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(10.r)),
-            child: Icon(Icons.contacts_outlined,
-                size: 20.r, color: AppColors.onPrimary),
-          ),
+          const _KakaoTalkIcon(),
           SizedBox(width: 12.w),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('연락처로 친구 찾기', style: AppType.body(w: FontWeight.w800)),
+                Text('카카오톡으로 친구 찾기', style: AppType.body(w: FontWeight.w800)),
                 Text('아는 친구를 빠르게 추가해요',
                     style: AppType.label(color: AppColors.text82)),
               ],
@@ -147,6 +139,33 @@ class _ContactsCard extends StatelessWidget {
           ),
           Iconify(AppIcons.chevronRight, size: 20.r, color: AppColors.text82),
         ],
+      ),
+    );
+  }
+}
+
+class _KakaoTalkIcon extends StatelessWidget {
+  const _KakaoTalkIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 38.r,
+      height: 38.r,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAE300),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        'TALK',
+        style: TextStyle(
+          fontFamily: 'Pretendard',
+          fontSize: 8.sp,
+          fontWeight: FontWeight.w800,
+          color: AppColors.black,
+          height: 1,
+        ),
       ),
     );
   }
@@ -199,7 +218,8 @@ class _ToggleButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 36.h,
-        padding: EdgeInsets.symmetric(horizontal: 12.w),
+        width: selected ? 81.w : 65.w,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? AppColors.white : AppColors.primary,
           borderRadius: BorderRadius.circular(AppSpacing.r12.r),
@@ -209,9 +229,9 @@ class _ToggleButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(selected ? Icons.check : Icons.add,
-                size: 16.r,
+                size: selected ? 18.r : 16.r,
                 color: selected ? AppColors.black : AppColors.onPrimary),
-            SizedBox(width: 4.w),
+            SizedBox(width: selected ? 2.w : 4.w),
             Text(selected ? '추가됨' : '추가',
                 style: AppType.bodyBold(
                     color: selected ? AppColors.black : AppColors.onPrimary)),
