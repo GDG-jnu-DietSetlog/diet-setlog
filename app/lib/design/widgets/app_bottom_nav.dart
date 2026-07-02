@@ -34,7 +34,7 @@ class AppBottomNav extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.r52.r),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.25),
+              color: Colors.black.withValues(alpha: 0.25),
               blurRadius: 4.851,
             ),
           ],

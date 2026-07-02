@@ -9,6 +9,8 @@ import '../features/home/home_screen.dart';
 import '../features/friends/friend_search_screen.dart';
 import '../features/calendar/calendar_screen.dart';
 import '../features/calendar/daily_summary_screen.dart';
+import '../features/calendar/meal_detail_args.dart';
+import '../features/calendar/meal_detail_screen.dart';
 import '../features/analysis/analysis_flow.dart';
 import '../features/analysis/capture_screen.dart';
 import '../features/analysis/analyzing_screen.dart';
@@ -76,6 +78,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.dailySummary,
         builder: (c, s) => DailySummaryScreen(date: s.extra as DateTime),
+      ),
+      GoRoute(
+        path: Routes.mealDetail,
+        builder: (c, s) => MealDetailScreen(args: s.extra as MealDetailArgs),
       ),
       GoRoute(
         path: Routes.capture,

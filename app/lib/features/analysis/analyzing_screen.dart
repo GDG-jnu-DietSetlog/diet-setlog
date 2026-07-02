@@ -119,7 +119,7 @@ class _AnalyzingScreenState extends ConsumerState<AnalyzingScreen> {
               width: 120.r,
               height: 120.r,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.25),
+                color: AppColors.primary.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(60.r),
               ),
               child: Center(

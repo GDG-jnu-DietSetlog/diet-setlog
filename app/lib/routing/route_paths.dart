@@ -8,6 +8,7 @@ abstract final class Routes {
   static const home = '/home';
   static const calendar = '/calendar';
   static const dailySummary = '/calendar/daily';
+  static const mealDetail = '/calendar/meal';
   static const feed = '/feed';
   static const feedDetail = '/feed/detail';
   static const friendSearch = '/friends/search';
