@@ -70,7 +70,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               }
             }),
             const Divider(height: 1, color: AppColors.borderField),
-            _StoryStrip(posts: state.posts),
+            _StoryStrip(
+              posts: state.posts,
+              title: '오늘 인증한 친구',
+              onStoryTap: () => context.push(Routes.feedStory),
+            ),
             Expanded(
               child: Container(
                 color: AppColors.bgSheet,
@@ -182,6 +186,246 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 }
 
+class FeedStoryScreen extends ConsumerStatefulWidget {
+  const FeedStoryScreen({super.key, required this.date});
+  final DateTime date;
+
+  @override
+  ConsumerState<FeedStoryScreen> createState() => _FeedStoryScreenState();
+}
+
+class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
+  final _scroll = ScrollController();
+  bool _friendRecords = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 400) {
+        ref.read(feedControllerProvider.notifier).loadMore();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(feedControllerProvider);
+    final ctrl = ref.read(feedControllerProvider.notifier);
+
+    return Scaffold(
+      backgroundColor: AppColors.white,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _StoryHeader(
+              title: _formatStoryDate(widget.date),
+              onBack: () =>
+                  context.canPop() ? context.pop() : context.go(Routes.feed),
+            ),
+            const Divider(height: 1, color: AppColors.borderField),
+            _StoryStrip(
+              posts: state.posts,
+              title: '스토리 다시보기',
+              dashed: true,
+              showMeAddBadge: false,
+            ),
+            Expanded(
+              child: Container(
+                color: AppColors.bgSheet,
+                child: Column(
+                  children: [
+                    _StoryModeChips(
+                      friendRecords: _friendRecords,
+                      onChanged: (value) =>
+                          setState(() => _friendRecords = value),
+                    ),
+                    Expanded(child: _storyBody(state, ctrl)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _storyBody(FeedState state, FeedController ctrl) {
+    if (state.loading && state.posts.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation(AppColors.primary)),
+      );
+    }
+    if (state.error != null && state.posts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(state.error!, style: AppType.body(color: AppColors.text82)),
+            TextButton(onPressed: ctrl.refresh, child: const Text('다시 시도')),
+          ],
+        ),
+      );
+    }
+    if (state.posts.isEmpty) {
+      return Center(
+        child: Text(
+          _friendRecords ? '친구 기록이 없어요.' : '나의 기록이 없어요.',
+          style: AppType.body(color: AppColors.text82),
+        ),
+      );
+    }
+    final posts = _friendRecords ? state.posts : const <FeedPost>[];
+    if (posts.isEmpty) {
+      return Center(
+        child:
+            Text('나의 기록이 없어요.', style: AppType.body(color: AppColors.text82)),
+      );
+    }
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: ctrl.refresh,
+      child: ListView.builder(
+        controller: _scroll,
+        padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 118.h),
+        itemCount: posts.length + (state.hasMore ? 1 : 0),
+        itemBuilder: (_, i) {
+          if (i >= posts.length) {
+            return Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.h),
+              child: const Center(
+                child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation(AppColors.primary)),
+              ),
+            );
+          }
+          return _FeedCard(
+            post: posts[i],
+            onLike: () => ctrl.toggleLike(posts[i]),
+            onComment: () => showCommentsSheet(
+              context,
+              recordId: posts[i].recordId,
+              onAdded: () => ctrl.bumpCommentCount(posts[i].recordId),
+            ),
+            onOpen: () => context.push(Routes.feedDetail, extra: posts[i]),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StoryHeader extends StatelessWidget {
+  const _StoryHeader({required this.title, required this.onBack});
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 60.h,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 24.w,
+            top: 8.h,
+            child: SizedBox(
+              width: 44.r,
+              height: 44.r,
+              child: IconButton(
+                onPressed: onBack,
+                icon:
+                    Iconify(AppIcons.back, size: 28.r, color: AppColors.black),
+              ),
+            ),
+          ),
+          Text(title, style: AppType.appBar()),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryModeChips extends StatelessWidget {
+  const _StoryModeChips({
+    required this.friendRecords,
+    required this.onChanged,
+  });
+
+  final bool friendRecords;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58.h,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.fromLTRB(24.w, 14.h, 24.w, 12.h),
+        children: [
+          _StoryModeChip(
+            label: '나의 기록',
+            active: !friendRecords,
+            onTap: () => onChanged(false),
+          ),
+          SizedBox(width: 8.w),
+          _StoryModeChip(
+            label: '친구 기록',
+            active: friendRecords,
+            onTap: () => onChanged(true),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryModeChip extends StatelessWidget {
+  const _StoryModeChip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 32.h,
+        width: 67.w,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: active ? AppColors.primary : AppColors.white,
+          borderRadius: BorderRadius.circular(38.r),
+          border: active ? null : Border.all(color: AppColors.border),
+        ),
+        child: Text(
+          label,
+          style: AppType.body(
+            color: active ? AppColors.onPrimary : AppColors.text4D,
+            w: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FeedHeader extends StatelessWidget {
   const _FeedHeader({required this.onBack});
   final VoidCallback onBack;
@@ -271,8 +515,19 @@ class _FeedLogoMark extends StatelessWidget {
 }
 
 class _StoryStrip extends StatelessWidget {
-  const _StoryStrip({required this.posts});
+  const _StoryStrip({
+    required this.posts,
+    required this.title,
+    this.dashed = false,
+    this.showMeAddBadge = true,
+    this.onStoryTap,
+  });
+
   final List<FeedPost> posts;
+  final String title;
+  final bool dashed;
+  final bool showMeAddBadge;
+  final VoidCallback? onStoryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +542,7 @@ class _StoryStrip extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(24.w, 10.h, 24.w, 0),
-            child: Text('오늘 인증한 친구', style: AppType.bodyBold()),
+            child: Text(title, style: AppType.bodyBold()),
           ),
           SizedBox(height: 12.h),
           SizedBox(
@@ -296,9 +551,17 @@ class _StoryStrip extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: 24.w),
               children: [
-                const _StoryAvatar.me(),
+                _StoryAvatar.me(
+                  dashed: dashed,
+                  showAddBadge: showMeAddBadge,
+                  onTap: onStoryTap,
+                ),
                 for (final post in authors.values.take(8))
-                  _StoryAvatar(post: post),
+                  _StoryAvatar(
+                    post: post,
+                    dashed: dashed,
+                    onTap: onStoryTap,
+                  ),
               ],
             ),
           ),
@@ -309,84 +572,154 @@ class _StoryStrip extends StatelessWidget {
 }
 
 class _StoryAvatar extends StatelessWidget {
-  const _StoryAvatar({required this.post}) : isMe = false;
-  const _StoryAvatar.me()
-      : post = null,
+  const _StoryAvatar({
+    required this.post,
+    this.dashed = false,
+    this.onTap,
+  })  : isMe = false,
+        showAddBadge = false;
+  const _StoryAvatar.me({
+    this.dashed = false,
+    this.showAddBadge = true,
+    this.onTap,
+  })  : post = null,
         isMe = true;
 
   final FeedPost? post;
   final bool isMe;
+  final bool dashed;
+  final bool showAddBadge;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final name = isMe ? '나' : post!.author.displayName;
-    return Padding(
-      padding: EdgeInsets.only(right: 16.w),
-      child: Column(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                padding: EdgeInsets.all(2.r),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isMe ? AppColors.border : AppColors.verifyRing,
-                    width: isMe ? 1.r : 2.r,
-                  ),
-                ),
-                child: isMe
-                    ? Container(
-                        width: 50.r,
-                        height: 50.r,
-                        decoration: const BoxDecoration(
-                          color: AppColors.bgInput,
-                          shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.only(right: 16.w),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _StoryRing(
+                  dashed: dashed,
+                  active: !isMe,
+                  child: isMe
+                      ? Container(
+                          width: 50.r,
+                          height: 50.r,
+                          decoration: const BoxDecoration(
+                            color: AppColors.bgInput,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.person_outline,
+                              size: 25.r, color: AppColors.text82),
+                        )
+                      : InitialAvatar(
+                          name: name,
+                          avatarUrl: post!.author.avatarUrl,
+                          seedId: post!.author.id,
+                          size: 50,
                         ),
-                        child: Icon(Icons.person_outline,
-                            size: 25.r, color: AppColors.text82),
-                      )
-                    : InitialAvatar(
-                        name: name,
-                        avatarUrl: post!.author.avatarUrl,
-                        seedId: post!.author.id,
-                        size: 50,
-                      ),
-              ),
-              if (isMe)
-                Positioned(
-                  right: -2.w,
-                  bottom: -2.h,
-                  child: Container(
-                    width: 22.r,
-                    height: 22.r,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child:
-                        Icon(Icons.add, size: 15.r, color: AppColors.onPrimary),
-                  ),
                 ),
-            ],
-          ),
-          SizedBox(height: 5.h),
-          SizedBox(
-            width: 54.r,
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: AppType.label(
-                color: isMe ? AppColors.textD5 : AppColors.text85,
+                if (isMe && showAddBadge)
+                  Positioned(
+                    right: -2.w,
+                    bottom: -2.h,
+                    child: Container(
+                      width: 22.r,
+                      height: 22.r,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.add,
+                          size: 15.r, color: AppColors.onPrimary),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 5.h),
+            SizedBox(
+              width: 54.r,
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AppType.label(
+                  color: isMe ? AppColors.textD5 : AppColors.text85,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+}
+
+class _StoryRing extends StatelessWidget {
+  const _StoryRing({
+    required this.child,
+    required this.dashed,
+    required this.active,
+  });
+
+  final Widget child;
+  final bool dashed;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active || dashed ? AppColors.verifyRing : AppColors.border;
+    final width = active || dashed ? 2.r : 1.r;
+    final content = Padding(padding: EdgeInsets.all(2.r), child: child);
+
+    if (!dashed) {
+      return Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: color, width: width),
+        ),
+        child: content,
+      );
+    }
+    return CustomPaint(
+      painter: _DashedCirclePainter(color: color, strokeWidth: width),
+      child: content,
+    );
+  }
+}
+
+class _DashedCirclePainter extends CustomPainter {
+  const _DashedCirclePainter({required this.color, required this.strokeWidth});
+  final Color color;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    final rect = Offset.zero & size;
+    const dashCount = 22;
+    const gapRadians = 0.11;
+    const tau = 2 * 3.141592653589793;
+    const sweep = (tau / dashCount) - gapRadians;
+    for (var i = 0; i < dashCount; i++) {
+      final start = i * tau / dashCount;
+      canvas.drawArc(rect.deflate(strokeWidth / 2), start, sweep, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedCirclePainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
   }
 }
 
@@ -784,3 +1117,9 @@ class _MacroStat extends StatelessWidget {
 
 String _formatGram(num n) =>
     n % 1 == 0 ? n.toInt().toString() : n.toStringAsFixed(1);
+
+String _formatStoryDate(DateTime date) {
+  const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+  final local = date.toLocal();
+  return '${local.year}년 ${local.month}월 ${local.day}일(${weekdays[local.weekday - 1]})';
+}

@@ -75,6 +75,30 @@ void main() {
     expect(find.text('AI 분석 완료'), findsOneWidget);
     expect(find.text('스테이크 버섯 볶음'), findsOneWidget);
   });
+
+  testWidgets('FeedStoryScreen renders Figma v2 dated story replay',
+      (tester) async {
+    await _setPhoneSurface(tester);
+
+    await tester.pumpWidget(
+      _TestApp(
+        overrides: [
+          feedApiProvider.overrideWithValue(_FakeFeedApi(
+            FeedResponse(posts: [_feedPost()]),
+          )),
+        ],
+        child: FeedStoryScreen(date: DateTime(2026, 5, 24)),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026년 5월 24일(일)'), findsOneWidget);
+    expect(find.text('스토리 다시보기'), findsOneWidget);
+    expect(find.text('나의 기록'), findsOneWidget);
+    expect(find.text('친구 기록'), findsOneWidget);
+    expect(find.text('스테이크 버섯 볶음'), findsOneWidget);
+  });
 }
 
 Future<void> _setPhoneSurface(WidgetTester tester) {

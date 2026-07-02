@@ -105,6 +105,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (c, s) => const FeedScreen(),
       ),
       GoRoute(
+        path: Routes.feedStory,
+        builder: (c, s) =>
+            FeedStoryScreen(date: s.extra as DateTime? ?? DateTime.now()),
+      ),
+      GoRoute(
         path: Routes.feedDetail,
         builder: (c, s) => FeedDetailScreen(post: s.extra as FeedPost),
       ),

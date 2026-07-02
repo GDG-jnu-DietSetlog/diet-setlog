@@ -10,6 +10,7 @@ abstract final class Routes {
   static const dailySummary = '/calendar/daily';
   static const mealDetail = '/calendar/meal';
   static const feed = '/feed';
+  static const feedStory = '/feed/story';
   static const feedDetail = '/feed/detail';
   static const friendSearch = '/friends/search';
   static const capture = '/capture';
