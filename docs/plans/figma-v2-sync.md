@@ -104,6 +104,11 @@
   - `FeedStoryController`를 추가해 일반 피드와 별도 상태로 날짜별 스토리 피드를 조회한다.
   - `FeedStoryScreen`의 `나의 기록`/`친구 기록` 칩이 실제 API scope 전환을 수행하도록 연결했다.
   - 서버 feed route test와 앱 feed controller/widget test를 보강했다.
+- 로그인/온보딩/프로필 2차 세부 토큰 diff 작업을 재개하려 했으나 Figma MCP가 재인증을 요구해 노드 조회가 차단됐다.
+  - 대상 노드: 온보딩 `51:408`, `51:424`, 프로필 `51:1328`, `51:315`, `51:361`.
+  - 정확한 Figma 치수/토큰 대조는 재인증 후 진행한다.
+  - 재인증 전에도 유효한 회귀 보호를 위해 프로필 설정 3단계 390×844 widget test를 추가했다.
+  - 테스트는 이름 입력 → STEP2 기본정보 입력 → STEP3 목표 화면 진입까지 주요 문구/필드를 검증한다.
 
 ## 다음 작업 순서
 
@@ -111,6 +116,7 @@
    - 캘린더 통합 화면의 스크롤 높이, bottom nav 겹침, 월/연 선택 박스, 끼니 row 터치 영역 확인
    - 끼니 상세 화면의 hero image, item chip wrapping, macro/칼로리 영역, 닫기 CTA 확인
 2. 로그인/온보딩/프로필 2차 시안의 세부 토큰 diff를 확인한다.
+   - 현재 Figma MCP가 재인증을 요구한다. 재인증 후 `51:408`, `51:424`, `51:1328`, `51:315`, `51:361` 메타데이터/스크린샷부터 다시 조회한다.
    - 카카오 로그인 화면은 구현 흔적이 있으므로 에셋·간격·타이포 중심으로 점검한다.
 3. 기존 열린 앱 이슈 `#24`, `#26`, `#28`, `#30`, `#32`를 병합 PR과 실제 구현 상태 기준으로 close/comment 대상 정리한다.
 4. 변경 범위를 커밋 단위로 분리한다.
@@ -132,6 +138,12 @@
   - 결과: 통과, 2 files / 15 tests
 - `cd server && npm run lint`
   - 결과: 통과
+- `cd app && flutter test test/figma_v2_onboarding_profile_test.dart`
+  - 결과: 통과, 1 test
+- `cd app && HOME=/private/tmp DART_SUPPRESS_ANALYTICS=true FLUTTER_ALREADY_LOCKED=true flutter --no-version-check analyze`
+  - 결과: 통과
+- `cd app && flutter test`
+  - 결과: 통과, 61 tests
 - `cd server && npx tsc --noEmit`
   - 결과: 통과
 - `cd app && flutter test`
@@ -212,10 +224,11 @@
 - 홈2 친구 추가 화면(`51:1240`) 기본 UI 고도화를 1차 완료했다.
 - 날짜별 스토리 다시보기 피드(`56:1392`) UI/라우트 1차 구현을 완료했다.
 - 날짜별 스토리 다시보기 피드(`56:1392`)의 `date`/`scope` API 계약과 앱 연결을 완료했다.
+- 프로필 설정 3단계 390×844 widget test를 추가했다.
 
 ### 미완성
 
 - 390×844 기준 실제 화면 캡처 검증은 아직 하지 못했다.
-- 로그인/온보딩/프로필 2차 세부 토큰 diff는 아직 남아 있다.
+- 로그인/온보딩/프로필 2차 세부 토큰 diff는 Figma MCP 재인증 후 진행해야 한다.
 - 기존 열린 앱 이슈 `#24`, `#26`, `#28`, `#30`, `#32` 정리는 아직 남아 있다.
 - 기존 auth/profile 미커밋 변경과 이번 Figma 구현 변경이 같은 작업트리에 있어 커밋 단위 분리가 필요하다.
