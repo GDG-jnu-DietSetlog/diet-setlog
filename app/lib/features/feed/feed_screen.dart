@@ -58,27 +58,30 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        leading: IconButton(
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go(Routes.home),
-          icon: Iconify(AppIcons.back, size: 26.r),
-        ),
-        title: Text('피드', style: AppType.appBar()),
-        actions: [
-          Padding(
-            padding: EdgeInsets.only(right: 16.w),
-            child: Iconify(AppIcons.bell, size: 24.r),
-          ),
-        ],
-      ),
       body: SafeArea(
-        top: false,
+        bottom: false,
         child: Column(
           children: [
-            _filterChips(state.filter, ctrl),
-            Expanded(child: _body(state, ctrl)),
+            _FeedHeader(onBack: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(Routes.home);
+              }
+            }),
+            const Divider(height: 1, color: AppColors.borderField),
+            _StoryStrip(posts: state.posts),
+            Expanded(
+              child: Container(
+                color: AppColors.bgSheet,
+                child: Column(
+                  children: [
+                    _filterChips(state.filter, ctrl),
+                    Expanded(child: _body(state, ctrl)),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -87,10 +90,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   Widget _filterChips(MealType? selected, FeedController ctrl) {
     return SizedBox(
-      height: 56.h,
+      height: 58.h,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
+        padding: EdgeInsets.fromLTRB(24.w, 14.h, 24.w, 12.h),
         children: [
           for (final (label, meal) in _filters) ...[
             _chip(label, meal == selected, () => ctrl.setFilter(meal)),
@@ -105,6 +108,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: 32.h,
+        width: 56.w,
         padding: EdgeInsets.symmetric(horizontal: 16.w),
         alignment: Alignment.center,
         decoration: BoxDecoration(
@@ -148,7 +153,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       onRefresh: ctrl.refresh,
       child: ListView.builder(
         controller: _scroll,
-        padding: EdgeInsets.fromLTRB(24.w, 4.h, 24.w, 24.h),
+        padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 118.h),
         itemCount: state.posts.length + (state.hasMore ? 1 : 0),
         itemBuilder: (_, i) {
           if (i >= state.posts.length) {
@@ -177,6 +182,214 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 }
 
+class _FeedHeader extends StatelessWidget {
+  const _FeedHeader({required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
+    return SizedBox(
+      height: 78.h,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(18.w, 10.h, 24.w, 10.h),
+        child: Row(
+          children: [
+            if (canPop)
+              IconButton(
+                onPressed: onBack,
+                icon:
+                    Iconify(AppIcons.back, size: 28.r, color: AppColors.black),
+              )
+            else
+              Padding(
+                padding: EdgeInsets.only(left: 6.w),
+                child: const _FeedLogoMark(),
+              ),
+            const Spacer(),
+            IconButton(
+              onPressed: () {},
+              icon: Iconify(AppIcons.bell, size: 24.r, color: AppColors.black),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedLogoMark extends StatelessWidget {
+  const _FeedLogoMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 38.w,
+      height: 31.h,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: 1.w,
+            top: 5.h,
+            child: Container(
+              width: 16.r,
+              height: 21.r,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(14.r),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 1.w,
+            top: 5.h,
+            child: Container(
+              width: 16.r,
+              height: 21.r,
+              decoration: BoxDecoration(
+                color: const Color(0xFF69B7FF),
+                borderRadius: BorderRadius.circular(14.r),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            child: Container(
+              width: 25.r,
+              height: 13.r,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF5F9EFF), width: 6.r),
+                borderRadius: BorderRadius.circular(18.r),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryStrip extends StatelessWidget {
+  const _StoryStrip({required this.posts});
+  final List<FeedPost> posts;
+
+  @override
+  Widget build(BuildContext context) {
+    final authors = <String, FeedPost>{};
+    for (final post in posts) {
+      authors.putIfAbsent(post.author.id, () => post);
+    }
+    return SizedBox(
+      height: 136.h,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(24.w, 10.h, 24.w, 0),
+            child: Text('오늘 인증한 친구', style: AppType.bodyBold()),
+          ),
+          SizedBox(height: 12.h),
+          SizedBox(
+            height: 84.h,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              children: [
+                const _StoryAvatar.me(),
+                for (final post in authors.values.take(8))
+                  _StoryAvatar(post: post),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StoryAvatar extends StatelessWidget {
+  const _StoryAvatar({required this.post}) : isMe = false;
+  const _StoryAvatar.me()
+      : post = null,
+        isMe = true;
+
+  final FeedPost? post;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = isMe ? '나' : post!.author.displayName;
+    return Padding(
+      padding: EdgeInsets.only(right: 16.w),
+      child: Column(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: EdgeInsets.all(2.r),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isMe ? AppColors.border : AppColors.verifyRing,
+                    width: isMe ? 1.r : 2.r,
+                  ),
+                ),
+                child: isMe
+                    ? Container(
+                        width: 50.r,
+                        height: 50.r,
+                        decoration: const BoxDecoration(
+                          color: AppColors.bgInput,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.person_outline,
+                            size: 25.r, color: AppColors.text82),
+                      )
+                    : InitialAvatar(
+                        name: name,
+                        avatarUrl: post!.author.avatarUrl,
+                        seedId: post!.author.id,
+                        size: 50,
+                      ),
+              ),
+              if (isMe)
+                Positioned(
+                  right: -2.w,
+                  bottom: -2.h,
+                  child: Container(
+                    width: 22.r,
+                    height: 22.r,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child:
+                        Icon(Icons.add, size: 15.r, color: AppColors.onPrimary),
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 5.h),
+          SizedBox(
+            width: 54.r,
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: AppType.label(
+                color: isMe ? AppColors.textD5 : AppColors.text85,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FeedCard extends StatelessWidget {
   const _FeedCard(
       {required this.post,
@@ -190,8 +403,6 @@ class _FeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = (post.macros.proteinG + post.macros.carbsG + post.macros.fatG)
-        .clamp(1, double.infinity);
     return Container(
       margin: EdgeInsets.only(bottom: 16.h),
       decoration: BoxDecoration(
@@ -205,27 +416,11 @@ class _FeedCard extends StatelessWidget {
           _header(),
           GestureDetector(onTap: onOpen, child: _photo()),
           Padding(
-            padding: EdgeInsets.all(12.w),
+            padding: EdgeInsets.fromLTRB(11.w, 12.h, 11.w, 11.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                        child: NutritionBar(
-                            macro: Macro.protein,
-                            ratio: post.macros.proteinG / total)),
-                    SizedBox(width: 6.w),
-                    Expanded(
-                        child: NutritionBar(
-                            macro: Macro.carbs,
-                            ratio: post.macros.carbsG / total)),
-                    SizedBox(width: 6.w),
-                    Expanded(
-                        child: NutritionBar(
-                            macro: Macro.fat, ratio: post.macros.fatG / total)),
-                  ],
-                ),
+                _nutritionSummary(),
                 SizedBox(height: 12.h),
                 GestureDetector(
                   onTap: onOpen,
@@ -260,7 +455,7 @@ class _FeedCard extends StatelessWidget {
 
   Widget _header() {
     return Padding(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.fromLTRB(11.w, 8.h, 11.w, 8.h),
       child: Row(
         children: [
           InitialAvatar(
@@ -268,24 +463,41 @@ class _FeedCard extends StatelessWidget {
               avatarUrl: post.author.avatarUrl,
               seedId: post.author.id,
               size: 40),
-          SizedBox(width: 10.w),
-          Text(post.author.displayName,
-              style: AppType.body(w: FontWeight.w600)),
-          SizedBox(width: 8.w),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-            decoration: BoxDecoration(
-              color: AppColors.primaryTint,
-              borderRadius: BorderRadius.circular(26.r),
+          SizedBox(width: 11.w),
+          Expanded(
+            child: SizedBox(
+              height: 43.h,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    child: Text(
+                      post.author.displayName,
+                      style: AppType.body(w: FontWeight.w600),
+                    ),
+                  ),
+                  Positioned(
+                    left: 42.w,
+                    top: 6.h,
+                    child: _MealBadge(mealType: post.mealType),
+                  ),
+                  Positioned(
+                    left: 0,
+                    top: 20.h,
+                    child: Text(
+                      _timeMeta(post.eatenAt),
+                      style: AppType.label(
+                        color: AppColors.textC7,
+                        w: FontWeight.w600,
+                      ).copyWith(height: 32 / 12),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Text(post.mealType.labelKo,
-                style: AppType.micro(
-                    color: AppColors.primary, w: FontWeight.w600)),
           ),
-          const Spacer(),
-          Text(_timeAgo(post.eatenAt),
-              style:
-                  AppType.label(color: AppColors.textC7, w: FontWeight.w600)),
+          Iconify(AppIcons.more, size: 24.r, color: AppColors.textC7),
         ],
       ),
     );
@@ -308,16 +520,40 @@ class _FeedCard extends StatelessWidget {
                 width: double.infinity,
                 color: AppColors.skeleton),
         Positioned(
-          left: 12.w,
-          bottom: 12.h,
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(AppSpacing.r46.r),
-            ),
-            child: Text('${post.totalCalories} kcal',
-                style: AppType.label(w: FontWeight.w700)),
+          left: 16.w,
+          bottom: 11.h,
+          child: _AiCalorieChip(calories: post.totalCalories),
+        ),
+      ],
+    );
+  }
+
+  Widget _nutritionSummary() {
+    final total = (post.macros.proteinG + post.macros.carbsG + post.macros.fatG)
+        .clamp(1, double.infinity);
+    return Row(
+      children: [
+        Expanded(
+          child: _MacroStat(
+            macro: Macro.protein,
+            grams: post.macros.proteinG,
+            ratio: post.macros.proteinG / total,
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: _MacroStat(
+            macro: Macro.carbs,
+            grams: post.macros.carbsG,
+            ratio: post.macros.carbsG / total,
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: _MacroStat(
+            macro: Macro.fat,
+            grams: post.macros.fatG,
+            ratio: post.macros.fatG / total,
           ),
         ),
       ],
@@ -382,4 +618,169 @@ class _FeedCard extends StatelessWidget {
     if (diff.inDays < 7) return '${diff.inDays}일 전';
     return DateFormat('M.d').format(t.toLocal());
   }
+
+  String _timeMeta(DateTime t) {
+    final local = t.toLocal();
+    final hour = local.hour;
+    final period = hour < 12 ? '오전' : '오후';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$period $displayHour:$minute  |  ${_timeAgo(t)}';
+  }
 }
+
+class _MealBadge extends StatelessWidget {
+  const _MealBadge({required this.mealType});
+  final MealType mealType;
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg) = switch (mealType) {
+      MealType.breakfast => (const Color(0xFFFFF1DA), const Color(0xFFA45600)),
+      MealType.lunch => (const Color(0xFFD0FFE4), const Color(0xFF00741E)),
+      MealType.dinner => (AppColors.primaryTint, AppColors.primary),
+      MealType.snack => (const Color(0xFFE7DCFF), const Color(0xFF7959BD)),
+    };
+    return Container(
+      height: 20.h,
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(26.r),
+      ),
+      child: Text(
+        mealType.labelKo,
+        style: AppType.micro(color: fg, w: FontWeight.w600)
+            .copyWith(fontSize: 10.sp),
+      ),
+    );
+  }
+}
+
+class _AiCalorieChip extends StatelessWidget {
+  const _AiCalorieChip({required this.calories});
+  final int calories;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 120.w,
+      height: 42.h,
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppSpacing.r46.r),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 30.r,
+            height: 30.r,
+            decoration: const BoxDecoration(
+              gradient: AppColors.aiGradient,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.auto_awesome,
+                size: 16.r, color: AppColors.onPrimary),
+          ),
+          SizedBox(width: 6.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '$calories',
+                          style: AppType.bodyBold().copyWith(fontSize: 17.sp),
+                        ),
+                        TextSpan(
+                          text: ' kcal',
+                          style: AppType.micro(
+                            color: AppColors.text6B,
+                            w: FontWeight.w600,
+                          ).copyWith(fontSize: 10.sp),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    children: [
+                      Icon(Icons.check,
+                          size: 12.r, color: AppColors.successText2),
+                      SizedBox(width: 2.w),
+                      Text(
+                        'AI 분석 완료',
+                        style: AppType.micro(
+                          color: AppColors.successText2,
+                          w: FontWeight.w600,
+                        ).copyWith(fontSize: 8.sp),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroStat extends StatelessWidget {
+  const _MacroStat({
+    required this.macro,
+    required this.grams,
+    required this.ratio,
+  });
+
+  final Macro macro;
+  final num grams;
+  final double ratio;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 98.w,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                macro.label,
+                style: AppType.micro(
+                  color: const Color(0xFF8F9092),
+                  w: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_formatGram(grams)}g',
+                style: AppType.micro(
+                  color: const Color(0xFF2C2C2C),
+                  w: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          NutritionBar(macro: macro, ratio: ratio),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatGram(num n) =>
+    n % 1 == 0 ? n.toInt().toString() : n.toStringAsFixed(1);
