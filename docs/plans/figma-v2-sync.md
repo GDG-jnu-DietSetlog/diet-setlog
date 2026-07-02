@@ -97,19 +97,23 @@
   - 기본 feed card와 feed 데이터를 재사용한다.
   - 현재 feed API에 날짜 파라미터가 없어 실제 날짜별 조회/나의 기록 필터는 후속 API 계약 변경이 필요하다.
   - 390×844 widget test를 `app/test/figma_v2_home_feed_test.dart`에 추가했다.
+- GitHub #78: 날짜별 스토리 다시보기 피드의 API 계약과 앱 연결을 보강했다.
+  - `GET /feed`에 `date=YYYY-MM-DD`와 `scope=all|mine|friends` query를 추가했다.
+  - `date`는 KST 로컬 날짜로 저장된 `eatenLocalDate` 기준으로 필터링한다.
+  - `scope=mine`은 내 공개 글, `scope=friends`는 팔로위 공개 글만 조회한다.
+  - `FeedStoryController`를 추가해 일반 피드와 별도 상태로 날짜별 스토리 피드를 조회한다.
+  - `FeedStoryScreen`의 `나의 기록`/`친구 기록` 칩이 실제 API scope 전환을 수행하도록 연결했다.
+  - 서버 feed route test와 앱 feed controller/widget test를 보강했다.
 
 ## 다음 작업 순서
 
 1. #74/#75 앱 구현을 실제 기기 또는 시뮬레이터에서 390×844 기준으로 캡처해 Figma와 대조한다.
    - 캘린더 통합 화면의 스크롤 높이, bottom nav 겹침, 월/연 선택 박스, 끼니 row 터치 영역 확인
    - 끼니 상세 화면의 hero image, item chip wrapping, macro/칼로리 영역, 닫기 CTA 확인
-2. 날짜별 스토리 다시보기 피드의 API 계약을 보강한다.
-   - `GET /feed` 날짜 필터 또는 별도 story replay endpoint 필요 여부를 결정한다.
-   - 나의 기록/친구 기록 칩이 실제 데이터를 전환하도록 서버/앱 계약을 갱신한다.
-3. 로그인/온보딩/프로필 2차 시안의 세부 토큰 diff를 확인한다.
+2. 로그인/온보딩/프로필 2차 시안의 세부 토큰 diff를 확인한다.
    - 카카오 로그인 화면은 구현 흔적이 있으므로 에셋·간격·타이포 중심으로 점검한다.
-4. 기존 열린 앱 이슈 `#24`, `#26`, `#28`, `#30`, `#32`를 병합 PR과 실제 구현 상태 기준으로 close/comment 대상 정리한다.
-5. 변경 범위를 커밋 단위로 분리한다.
+3. 기존 열린 앱 이슈 `#24`, `#26`, `#28`, `#30`, `#32`를 병합 PR과 실제 구현 상태 기준으로 close/comment 대상 정리한다.
+4. 변경 범위를 커밋 단위로 분리한다.
    - 이번 Figma 캘린더/끼니 상세 변경과 기존 auth/profile 미커밋 변경은 섞지 않는다.
    - 커밋 전 `git diff --stat`과 `git status --short --branch`로 범위 확인한다.
 
@@ -129,6 +133,10 @@
 - `cd server && npm run lint`
   - 결과: 통과
 - `cd server && npx tsc --noEmit`
+  - 결과: 통과
+- `cd app && flutter test`
+  - 결과: 통과, 60 tests
+- `cd server && npm run lint`
   - 결과: 통과
 - `cd app && flutter analyze`
   - 첫 실행: `withOpacity` deprecation 4건으로 실패
@@ -169,6 +177,14 @@
   - 결과: 통과, 3 tests
 - `cd app && flutter test`
   - 결과: 통과, 59 tests
+- `cd server && npm test -- --run src/modules/feed/feed.routes.test.ts`
+  - 결과: 통과, 1 file / 17 tests
+- `cd app && HOME=/private/tmp DART_SUPPRESS_ANALYTICS=true FLUTTER_ALREADY_LOCKED=true flutter --no-version-check analyze`
+  - 결과: 통과
+- `cd app && flutter test test/feed_test.dart test/figma_v2_home_feed_test.dart`
+  - 결과: 통과, 20 tests
+- `cd server && npx tsc --noEmit`
+  - 결과: 통과
 
 ## 완료 조건
 
@@ -195,11 +211,11 @@
 - 홈/피드 2차 상세 diff와 기본 홈/피드 구현을 1차 완료했다.
 - 홈2 친구 추가 화면(`51:1240`) 기본 UI 고도화를 1차 완료했다.
 - 날짜별 스토리 다시보기 피드(`56:1392`) UI/라우트 1차 구현을 완료했다.
+- 날짜별 스토리 다시보기 피드(`56:1392`)의 `date`/`scope` API 계약과 앱 연결을 완료했다.
 
 ### 미완성
 
 - 390×844 기준 실제 화면 캡처 검증은 아직 하지 못했다.
-- 날짜별 스토리 다시보기 피드(`56:1392`)의 실제 날짜별 조회/나의 기록 필터 API 계약은 남아 있다.
 - 로그인/온보딩/프로필 2차 세부 토큰 diff는 아직 남아 있다.
 - 기존 열린 앱 이슈 `#24`, `#26`, `#28`, `#30`, `#32` 정리는 아직 남아 있다.
 - 기존 auth/profile 미커밋 변경과 이번 Figma 구현 변경이 같은 작업트리에 있어 커밋 단위 분리가 필요하다.

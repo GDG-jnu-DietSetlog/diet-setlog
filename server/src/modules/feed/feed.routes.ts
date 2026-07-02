@@ -6,6 +6,7 @@ import { authGuard } from '../../middleware/auth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { AppError } from '../../http/errors.js';
 import { encodeCursor, decodeCursor, parseLimit } from '../../lib/cursor.js';
+import { isStrictYmd } from '../../lib/kst.js';
 import { macros } from '../../lib/serialize.js';
 
 // 피드(/v1/feed)와 글 상호작용(/v1/posts/...)을 한 모듈에서 두 라우터로 노출.
@@ -26,6 +27,8 @@ function commentCard(c: PostComment & { user: AuthorSel }) {
     createdAt: c.createdAt.toISOString(),
   };
 }
+
+const feedScopeSchema = z.enum(['all', 'mine', 'friends']);
 
 // 글이 나에게 보이는지(본인/팔로위 + publishedToFeed) 확인, 아니면 404.
 async function assertVisiblePost(recordId: string, me: string): Promise<FoodRecord> {
@@ -49,17 +52,26 @@ feedRouter.get(
     const limit = parseLimit(req.query.limit);
     const cur = decodeCursor<{ c: string; id: string }>(req.query.cursor as string | undefined);
     const mealType = req.query.mealType as string | undefined;
+    const scope = feedScopeSchema.parse(req.query.scope ?? 'all');
+    const date = req.query.date;
+
+    if (date !== undefined && (typeof date !== 'string' || !isStrictYmd(date))) {
+      throw new AppError('VALIDATION_FAILED', 'date must be YYYY-MM-DD');
+    }
 
     const following = await prisma.friendRelation.findMany({
       where: { followerId: me },
       select: { followingId: true },
     });
-    const authorIds = [me, ...following.map((f) => f.followingId)];
+    const followingIds = following.map((f) => f.followingId);
+    const authorIds =
+      scope === 'mine' ? [me] : scope === 'friends' ? followingIds : [me, ...followingIds];
 
     const records = await prisma.foodRecord.findMany({
       where: {
         userId: { in: authorIds },
         publishedToFeed: true,
+        ...(date ? { eatenLocalDate: new Date(`${date}T00:00:00Z`) } : {}),
         ...(mealType ? { mealType: mealType as FoodRecord['mealType'] } : {}),
         ...(cur
           ? {

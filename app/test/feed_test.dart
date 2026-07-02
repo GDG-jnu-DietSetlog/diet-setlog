@@ -40,16 +40,25 @@ class FakeFeedApi implements FeedApi {
   int getFeedCalls = 0;
   String? lastCursor;
   MealType? lastMealType;
+  DateTime? lastDate;
+  FeedScope? lastScope;
 
   /// getFeed 를 잠시 붙잡아 in-flight 상태를 만들기 위한 게이트.
   Completer<void>? gate;
 
   @override
-  Future<FeedResponse> getFeed(
-      {String? cursor, int? limit, MealType? mealType}) async {
+  Future<FeedResponse> getFeed({
+    String? cursor,
+    int? limit,
+    MealType? mealType,
+    DateTime? date,
+    FeedScope scope = FeedScope.all,
+  }) async {
     getFeedCalls++;
     lastCursor = cursor;
     lastMealType = mealType;
+    lastDate = date;
+    lastScope = scope;
     if (gate != null) await gate!.future;
     if (throwOnGetFeed) throw Exception('boom');
     return feedResponse;
@@ -348,5 +357,28 @@ void main() {
     expect(ctrl.state.filter, MealType.dinner);
     expect(fake.lastMealType, MealType.dinner);
     expect(ctrl.state.posts.single.recordId, 'r9');
+  });
+
+  test('FeedStoryController 는 date/scope 로 스토리 피드를 조회한다', () async {
+    final fake = FakeFeedApi()
+      ..feedResponse = FeedResponse(posts: [_post(id: 'story')]);
+    final c = _container(fake);
+    final ctrl = c.read(feedStoryControllerProvider.notifier);
+
+    await ctrl.refresh(
+      date: DateTime(2026, 5, 24),
+      scope: FeedScope.friends,
+    );
+
+    expect(fake.lastDate, DateTime(2026, 5, 24));
+    expect(fake.lastScope, FeedScope.friends);
+    expect(ctrl.state.posts.single.recordId, 'story');
+
+    fake.feedResponse = FeedResponse(posts: [_post(id: 'mine')]);
+    await ctrl.refresh(scope: FeedScope.mine);
+
+    expect(fake.lastDate, DateTime(2026, 5, 24));
+    expect(fake.lastScope, FeedScope.mine);
+    expect(ctrl.state.posts.single.recordId, 'mine');
   });
 }

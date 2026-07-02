@@ -131,11 +131,21 @@ class _FakeFeedApi implements FeedApi {
   _FakeFeedApi(this.response);
 
   final FeedResponse response;
+  DateTime? lastDate;
+  FeedScope? lastScope;
 
   @override
-  Future<FeedResponse> getFeed(
-          {String? cursor, int? limit, MealType? mealType}) async =>
-      response;
+  Future<FeedResponse> getFeed({
+    String? cursor,
+    int? limit,
+    MealType? mealType,
+    DateTime? date,
+    FeedScope scope = FeedScope.all,
+  }) async {
+    lastDate = date;
+    lastScope = scope;
+    return response;
+  }
 
   @override
   Future<LikeResult> like(String recordId) async =>

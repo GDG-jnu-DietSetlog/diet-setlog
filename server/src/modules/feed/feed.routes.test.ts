@@ -79,6 +79,69 @@ describe('GET /v1/feed', () => {
     expect(res.body.posts[0].mealType).toBe('breakfast');
   });
 
+  it('date 필터는 eatenLocalDate 기준으로 조회한다', async () => {
+    const me = await mkUser('나');
+    await mkRecord(me.id, { title: '6월20일' });
+    await mkRecord(me.id, {
+      title: '6월21일',
+      eatenAt: new Date('2026-06-21T03:00:00Z'),
+      eatenLocalDate: new Date('2026-06-21T00:00:00Z'),
+    });
+
+    const res = await request(app)
+      .get('/v1/feed?date=2026-06-21')
+      .set('authorization', authHeader(me.id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.posts.map((p: { title: string }) => p.title)).toEqual(['6월21일']);
+  });
+
+  it('scope=mine 은 내 공개 글만 조회한다', async () => {
+    const me = await mkUser('나');
+    const friend = await mkUser('친구');
+    await follow(me.id, friend.id);
+    await mkRecord(me.id, { title: '내글' });
+    await mkRecord(friend.id, { title: '친구글' });
+
+    const res = await request(app)
+      .get('/v1/feed?scope=mine')
+      .set('authorization', authHeader(me.id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.posts.map((p: { title: string }) => p.title)).toEqual(['내글']);
+  });
+
+  it('scope=friends 는 팔로위 공개 글만 조회한다', async () => {
+    const me = await mkUser('나');
+    const friend = await mkUser('친구');
+    const stranger = await mkUser('남');
+    await follow(me.id, friend.id);
+    await mkRecord(me.id, { title: '내글' });
+    await mkRecord(friend.id, { title: '친구글' });
+    await mkRecord(stranger.id, { title: '남의글' });
+
+    const res = await request(app)
+      .get('/v1/feed?scope=friends')
+      .set('authorization', authHeader(me.id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.posts.map((p: { title: string }) => p.title)).toEqual(['친구글']);
+  });
+
+  it('잘못된 date/scope → 400', async () => {
+    const me = await mkUser('나');
+
+    const badDate = await request(app)
+      .get('/v1/feed?date=2026-02-30')
+      .set('authorization', authHeader(me.id));
+    const badScope = await request(app)
+      .get('/v1/feed?scope=team')
+      .set('authorization', authHeader(me.id));
+
+    expect(badDate.status).toBe(400);
+    expect(badScope.status).toBe(400);
+  });
+
   it('likedByMe + previewComments(최신 2개, 오래된→최신)', async () => {
     const me = await mkUser('나');
     const r = await mkRecord(me.id);

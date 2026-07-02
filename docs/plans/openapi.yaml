@@ -275,12 +275,27 @@ paths:
           name: mealType
           schema: { $ref: '#/components/schemas/MealType' }
           description: 필터칩(전체=생략)
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+            example: '2026-06-27'
+          description: KST 로컬 날짜 기준 필터(YYYY-MM-DD)
+        - in: query
+          name: scope
+          schema:
+            type: string
+            enum: [all, mine, friends]
+            default: all
+          description: 전체/내 기록/친구 기록 범위 필터
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/FeedResponse' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /posts/{recordId}/like:

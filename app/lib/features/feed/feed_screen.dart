@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:iconify_flutter/iconify_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../data/api/feed_api.dart';
 import '../../data/models/enums.dart';
 import '../../data/models/feed.dart';
 import '../../design/app_colors.dart';
@@ -201,9 +202,12 @@ class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(() => ref
+        .read(feedStoryControllerProvider.notifier)
+        .refresh(date: widget.date, scope: FeedScope.friends));
     _scroll.addListener(() {
       if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 400) {
-        ref.read(feedControllerProvider.notifier).loadMore();
+        ref.read(feedStoryControllerProvider.notifier).loadMore();
       }
     });
   }
@@ -216,8 +220,8 @@ class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(feedControllerProvider);
-    final ctrl = ref.read(feedControllerProvider.notifier);
+    final state = ref.watch(feedStoryControllerProvider);
+    final ctrl = ref.read(feedStoryControllerProvider.notifier);
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -244,8 +248,13 @@ class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
                   children: [
                     _StoryModeChips(
                       friendRecords: _friendRecords,
-                      onChanged: (value) =>
-                          setState(() => _friendRecords = value),
+                      onChanged: (value) {
+                        setState(() => _friendRecords = value);
+                        ctrl.refresh(
+                          date: widget.date,
+                          scope: value ? FeedScope.friends : FeedScope.mine,
+                        );
+                      },
                     ),
                     Expanded(child: _storyBody(state, ctrl)),
                   ],
@@ -258,7 +267,7 @@ class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
     );
   }
 
-  Widget _storyBody(FeedState state, FeedController ctrl) {
+  Widget _storyBody(FeedState state, FeedStoryController ctrl) {
     if (state.loading && state.posts.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
@@ -271,7 +280,8 @@ class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(state.error!, style: AppType.body(color: AppColors.text82)),
-            TextButton(onPressed: ctrl.refresh, child: const Text('다시 시도')),
+            TextButton(
+                onPressed: () => ctrl.refresh(), child: const Text('다시 시도')),
           ],
         ),
       );
@@ -284,22 +294,15 @@ class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
         ),
       );
     }
-    final posts = _friendRecords ? state.posts : const <FeedPost>[];
-    if (posts.isEmpty) {
-      return Center(
-        child:
-            Text('나의 기록이 없어요.', style: AppType.body(color: AppColors.text82)),
-      );
-    }
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: ctrl.refresh,
+      onRefresh: () => ctrl.refresh(),
       child: ListView.builder(
         controller: _scroll,
         padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 118.h),
-        itemCount: posts.length + (state.hasMore ? 1 : 0),
+        itemCount: state.posts.length + (state.hasMore ? 1 : 0),
         itemBuilder: (_, i) {
-          if (i >= posts.length) {
+          if (i >= state.posts.length) {
             return Padding(
               padding: EdgeInsets.symmetric(vertical: 16.h),
               child: const Center(
@@ -308,15 +311,16 @@ class _FeedStoryScreenState extends ConsumerState<FeedStoryScreen> {
               ),
             );
           }
+          final post = state.posts[i];
           return _FeedCard(
-            post: posts[i],
-            onLike: () => ctrl.toggleLike(posts[i]),
+            post: post,
+            onLike: () => ctrl.toggleLike(post),
             onComment: () => showCommentsSheet(
               context,
-              recordId: posts[i].recordId,
-              onAdded: () => ctrl.bumpCommentCount(posts[i].recordId),
+              recordId: post.recordId,
+              onAdded: () => ctrl.bumpCommentCount(post.recordId),
             ),
-            onOpen: () => context.push(Routes.feedDetail, extra: posts[i]),
+            onOpen: () => context.push(Routes.feedDetail, extra: post),
           );
         },
       ),
